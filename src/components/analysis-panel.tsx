@@ -135,7 +135,6 @@ export function AnalysisPanel() {
 
     return (
       <div>
-        {/* View Type Selector */}
         <div className="flex gap-2 mb-4">
           <Button
             variant={selectedViewType === "chart" ? "default" : "outline"}
@@ -159,7 +158,6 @@ export function AnalysisPanel() {
 
         {selectedViewType === "chart" ? (
           <div>
-            {/* Chart Type Selector */}
             <div className="flex gap-2 mb-4">
               <Button
                 variant={selectedChartType === "bar" ? "default" : "outline"}
@@ -190,7 +188,6 @@ export function AnalysisPanel() {
               </Button>
             </div>
 
-            {/* Chart Visualization */}
             <div data-chart-container="true">
               <DataVisualization
                 data={dataToUse}
@@ -224,7 +221,6 @@ export function AnalysisPanel() {
   if (analysisMode && currentAnalysis) {
     return (
       <div className="h-full flex flex-col space-y-6">
-        {/* Analysis Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
@@ -239,7 +235,6 @@ export function AnalysisPanel() {
           </div>
         </div>
 
-        {/* SQL Query Display */}
         <div className="bg-slate-50 p-4 rounded-lg border">
           <h3 className="font-semibold text-slate-900 mb-2">Generated SQL</h3>
           <code className="text-sm text-slate-700 bg-slate-100 px-2 py-1 rounded">
@@ -247,18 +242,15 @@ export function AnalysisPanel() {
           </code>
         </div>
 
-        {/* Filter Controls */}
         <FilterControls 
           data={currentAnalysis.data} 
           onFiltersChange={handleFiltersChange}
         />
 
-        {/* Results Display */}
         <div className="flex-1">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-slate-900">Analysis Results</h2>
             
-            {/* Export Buttons */}
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -292,7 +284,6 @@ export function AnalysisPanel() {
           }
         </div>
 
-        {/* Raw Data Table for Chart Results Only */}
         {currentAnalysis.displayType === "chart" && selectedViewType === "chart" && currentAnalysis.data.length > 0 && (
           <div className="border-t border-slate-200 pt-6">
             <h3 className="font-semibold text-slate-900 mb-3">
@@ -333,7 +324,6 @@ export function AnalysisPanel() {
   // Enhanced dataset overview with responsive design and loading states  
   return (
     <div className="h-full space-y-4 sm:space-y-6 overflow-y-auto p-4 sm:p-6">
-      {/* Enhanced Dataset Overview Header */}
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -351,7 +341,6 @@ export function AnalysisPanel() {
         </CardHeader>
         
         <CardContent>
-          {/* Enhanced Dataset Stats - Responsive Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="text-center p-3 sm:p-4 bg-slate-50 rounded-lg border">
               <div className="text-xl sm:text-2xl font-bold text-slate-900">
@@ -381,7 +370,6 @@ export function AnalysisPanel() {
         </CardContent>
       </Card>
 
-      {/* Enhanced Schema Section */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Column Schema</CardTitle>
@@ -416,7 +404,6 @@ export function AnalysisPanel() {
         </CardContent>
       </Card>
 
-      {/* Enhanced Data Preview */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

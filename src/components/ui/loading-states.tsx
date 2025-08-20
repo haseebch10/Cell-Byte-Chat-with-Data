@@ -32,14 +32,12 @@ export function LoadingSpinner({ size = "md", message, className }: LoadingSpinn
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <div className="space-y-3">
-      {/* Header skeleton */}
       <div className="flex gap-4">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="h-4 bg-slate-200 rounded flex-1 animate-pulse" />
         ))}
       </div>
       
-      {/* Row skeletons */}
       {[...Array(rows)].map((_, i) => (
         <div key={i} className="flex gap-4">
           {[...Array(4)].map((_, j) => (
@@ -221,24 +219,20 @@ export function EmptyState({
   if (variant === "welcome") {
     return (
       <div className={cn("text-center py-12 px-6", className)}>
-        {/* Gradient background with subtle pattern */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-3xl opacity-60"></div>
           <div className="relative bg-white/80 backdrop-blur-sm border border-white/20 rounded-3xl p-8 sm:p-12 shadow-xl">
             
-            {/* Animated icon with gradient background */}
             <div className="relative mx-auto mb-8 animate-float">
               <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-600 animate-gradient rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg hover:scale-105 transition-transform duration-300">
                 <Icon className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
               </div>
               
-              {/* Floating accent elements */}
               <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full animate-pulse-soft"></div>
               <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full animate-pulse-soft" style={{ animationDelay: '1s' }}></div>
               <div className="absolute top-1/2 -left-3 w-3 h-3 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-pulse-soft" style={{ animationDelay: '0.5s' }}></div>
             </div>
 
-            {/* Enhanced typography */}
             <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text">
               {title}
             </h3>
@@ -247,7 +241,6 @@ export function EmptyState({
               {description}
             </p>
 
-            {/* Enhanced action button */}
             {action && (
               <div className="space-y-4">
                 <Button 
@@ -259,7 +252,6 @@ export function EmptyState({
                   {action.label}
                 </Button>
                 
-                {/* Subtle hint text */}
                 <p className="text-sm text-slate-500 mt-4">
                   Or drag and drop your CSV file anywhere to get started
                 </p>
@@ -292,11 +284,9 @@ export function EmptyState({
   return (
     <div className={cn("text-center py-12", className)}>
       <div className="relative">
-        {/* Background decoration */}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-50 via-white to-slate-50 rounded-2xl"></div>
         
         <div className="relative p-8">
-          {/* Enhanced icon container */}
           <div className="w-20 h-20 bg-gradient-to-br from-slate-100 via-slate-50 to-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
             <Icon className="w-10 h-10 text-slate-600" />
           </div>

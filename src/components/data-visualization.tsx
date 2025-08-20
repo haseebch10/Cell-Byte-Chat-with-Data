@@ -124,7 +124,6 @@ export function DataVisualization({ data, chartConfig }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Chart */}
       <div 
         className="bg-background border rounded-lg p-4"
         data-chart="true"
@@ -132,7 +131,6 @@ export function DataVisualization({ data, chartConfig }: Props) {
         {renderChart()}
       </div>
 
-      {/* Data Summary */}
       <div className="text-xs text-muted-foreground">
         Showing {data.length} records • Fields: {chartConfig.xField} vs {chartConfig.yField}
       </div>

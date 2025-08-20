@@ -281,7 +281,6 @@ export function QueryInterface() {
     return (
       <div className="h-full flex flex-col items-center justify-center px-4 py-8">
         <div className="w-full max-w-lg">
-          {/* Enhanced Empty State */}
           <EmptyState
             icon={Database}
             title="Welcome to CellByte Analytics"
@@ -332,7 +331,6 @@ export function QueryInterface() {
               <p className="text-sm text-slate-500">Or upload your own data:</p>
             </div>
 
-          {/* File Upload Area */}
           <Card
             className={cn(
               "p-8 border-2 border-dashed transition-colors cursor-pointer",
@@ -365,7 +363,6 @@ export function QueryInterface() {
             </div>
           </Card>
 
-          {/* Enhanced Loading States */}
           {isLoading && loadingType && (
             <div className="mt-6">
               <ContextualLoading 
@@ -379,7 +376,6 @@ export function QueryInterface() {
                 }
               />
               
-              {/* Progress indicator for uploads */}
               {uploadProgress && (
                 <div className="mt-4">
                   <ProgressIndicator
@@ -391,7 +387,6 @@ export function QueryInterface() {
             </div>
           )}
           
-          {/* Error State Display */}
           {error && (
             <div className="mt-6">
               <ErrorState
@@ -411,7 +406,6 @@ export function QueryInterface() {
 
   return (
     <div className="h-full flex flex-col px-4 lg:px-0">
-      {/* Enhanced Header with Better Responsive Design */}
       <div className="mb-4 sm:mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-4">
           <div>
@@ -421,7 +415,6 @@ export function QueryInterface() {
             </p>
           </div>
           
-          {/* Dataset Status Indicator */}
           {currentDataset && (
             <div className="flex-shrink-0">
               <div className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
@@ -432,7 +425,6 @@ export function QueryInterface() {
           )}
         </div>
         
-        {/* Dataset Info Card - More Mobile Friendly */}
         {currentDataset && (
           <Card className="bg-purple-50 border-purple-200">
             <div className="p-3 sm:p-4">
@@ -451,7 +443,6 @@ export function QueryInterface() {
         )}
       </div>
 
-      {/* Enhanced Chat Messages with Better Mobile Layout */}
       <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 mb-4 sm:mb-6 min-h-0">
         {chatHistory.length === 0 && !isLoading && (
           <div className="flex-1 flex items-center justify-center">
@@ -496,7 +487,6 @@ export function QueryInterface() {
           </div>
         ))}
 
-        {/* Enhanced Loading State for Chat */}
         {isLoading && loadingType === "analyzing" && (
           <div className="flex justify-start">
             <div className="max-w-lg bg-white border border-slate-200 rounded-2xl rounded-tl-md shadow-sm">
@@ -519,7 +509,6 @@ export function QueryInterface() {
         )}
       </div>
 
-      {/* Error State Display in Main Interface */}
       {error && (
         <div className="mb-4">
           <ErrorState
@@ -533,7 +522,6 @@ export function QueryInterface() {
         </div>
       )}
 
-      {/* Enhanced Query Input with Better Mobile UX */}
       <div className="border-t border-slate-200 pt-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
@@ -561,7 +549,6 @@ export function QueryInterface() {
             </Button>
           </div>
           
-          {/* Helpful Suggestions for Empty Input */}
           {!isLoading && inputValue.trim().length === 0 && chatHistory.length === 0 && (
             <div className="text-center">
               <p className="text-xs text-slate-500 mb-2">Try asking:</p>

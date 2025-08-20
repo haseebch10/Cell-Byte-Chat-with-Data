@@ -173,7 +173,6 @@ export function FilterControls({ data, onFiltersChange }: FilterControlsProps) {
     
     return (
       <div key={filter.column} className="border border-slate-200 rounded-lg overflow-hidden">
-        {/* Filter Header */}
         <button
           onClick={() => toggleFilterExpansion(filter.column)}
           className={cn(
@@ -197,7 +196,6 @@ export function FilterControls({ data, onFiltersChange }: FilterControlsProps) {
           {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
 
-        {/* Filter Content */}
         {isExpanded && (
           <div className="p-3 border-t border-slate-200 bg-slate-50">
             {filter.type === "category" && renderCategoryFilterContent(filter as CategoryFilter)}
@@ -324,7 +322,6 @@ export function FilterControls({ data, onFiltersChange }: FilterControlsProps) {
 
   return (
     <div className="space-y-4">
-      {/* Filter Toggle Button */}
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
@@ -342,7 +339,6 @@ export function FilterControls({ data, onFiltersChange }: FilterControlsProps) {
         </Button>
       </div>
 
-      {/* Compact Filter Panel */}
       {showFilters && (
         <Card className="p-4 max-w-md">
           <div className="space-y-3">
@@ -369,7 +365,6 @@ export function FilterControls({ data, onFiltersChange }: FilterControlsProps) {
               </div>
             </div>
 
-            {/* Compact Filter List */}
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {availableFilters.map(filter => renderCompactFilter(filter))}
             </div>
