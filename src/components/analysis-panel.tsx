@@ -214,6 +214,7 @@ export function AnalysisPanel() {
           title="No Dataset Loaded"
           description="Upload a CSV file or load sample data from the left panel to start analyzing your data and viewing insights here."
           className="max-w-md"
+          variant="simple"
         />
       </div>
     );
@@ -479,6 +480,7 @@ export function AnalysisPanel() {
                 title="No Preview Data"
                 description="Data preview is not available for this dataset."
                 className="py-4"
+                variant="simple"
               />
             </div>
           )}

@@ -361,6 +361,7 @@ export function QueryInterface() {
             icon={Database}
             title="Welcome to CellByte Analytics"
             description="Upload your CSV dataset or load sample data to begin analyzing your data with natural language queries powered by AI."
+            variant="welcome"
             action={{
               label: "Load Sample Data",
               onClick: async () => {
@@ -438,64 +439,6 @@ export function QueryInterface() {
               />
             </div>
           </Card>
-
-                    {/* Sample Data Option */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-slate-600 mb-4">Or try with sample data:</p>
-            <Button
-              onClick={async () => {
-                setIsLoading(true);
-                setLoadingType("processing");
-                setError(null);
-                
-                const retrySample = () => {
-                  setError(null);
-                  // Re-trigger the sample data loading
-                };
-                
-                try {
-                  const result = await tRPCClient.getSampleData("germany_sample");
-                  if (result.success) {
-                    
-                    setCurrentDataset({
-                      id: "sample-germany",
-                      name: "Germany Sample Dataset",
-                      schema: result.schema || [],
-                      rowCount: result.data?.length || 0,
-                      preview: result.data || [],
-                      fullData: result.fullData || result.data,
-                    });
-                  } else {
-                    const errorMsg = result.error || "Failed to load sample data";
-                    setError({
-                      type: "error",
-                      title: "Sample Data Loading Failed",
-                      message: errorMsg,
-                      retryAction: retrySample
-                    });
-                  }
-                } catch (error) {
-                  const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
-                  setError({
-                    type: "network",
-                    title: "Could Not Load Sample Data",
-                    message: errorMsg.includes("fetch") || errorMsg.includes("network")
-                      ? "Network connection issue. Please check your internet connection and try again."
-                      : errorMsg,
-                    retryAction: retrySample
-                  });
-                } finally {
-                  setIsLoading(false);
-                  setLoadingType(null);
-                }
-              }}
-              disabled={isLoading}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              <Database className="w-4 h-4 mr-2" />
-              Load Germany Sample Dataset
-            </Button>
-          </div>
 
           {/* Enhanced Loading States */}
           {isLoading && loadingType && (
@@ -586,12 +529,14 @@ export function QueryInterface() {
       {/* Enhanced Chat Messages with Better Mobile Layout */}
       <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 mb-4 sm:mb-6 min-h-0">
         {chatHistory.length === 0 && !isLoading && (
-          <EmptyState
-            icon={BarChart3}
-            title="Start Your Analysis"
-            description="Ask questions about your data in natural language. I'll help you analyze and visualize the insights."
-            className="h-full flex items-center justify-center py-8"
-          />
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState
+              icon={BarChart3}
+              title="Start Your Analysis"
+              description="Ask questions about your data in natural language. I'll help you analyze and visualize the insights."
+              variant="simple"
+            />
+          </div>
         )}
 
         {chatHistory.map((message, index) => (

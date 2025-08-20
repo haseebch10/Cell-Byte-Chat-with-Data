@@ -197,7 +197,7 @@ export function ErrorState({
   );
 }
 
-// Empty state component
+// Enhanced empty state component with modern design
 interface EmptyStateProps {
   icon?: React.ComponentType<{ className?: string }>;
   title: string;
@@ -207,6 +207,7 @@ interface EmptyStateProps {
     onClick: () => void;
   };
   className?: string;
+  variant?: "default" | "welcome" | "simple";
 }
 
 export function EmptyState({ 
@@ -214,20 +215,105 @@ export function EmptyState({
   title, 
   description, 
   action,
-  className 
+  className,
+  variant = "default"
 }: EmptyStateProps) {
+  if (variant === "welcome") {
+    return (
+      <div className={cn("text-center py-12 px-6", className)}>
+        {/* Gradient background with subtle pattern */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-3xl opacity-60"></div>
+          <div className="relative bg-white/80 backdrop-blur-sm border border-white/20 rounded-3xl p-8 sm:p-12 shadow-xl">
+            
+            {/* Animated icon with gradient background */}
+            <div className="relative mx-auto mb-8 animate-float">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-600 animate-gradient rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg hover:scale-105 transition-transform duration-300">
+                <Icon className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+              </div>
+              
+              {/* Floating accent elements */}
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full animate-pulse-soft"></div>
+              <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full animate-pulse-soft" style={{ animationDelay: '1s' }}></div>
+              <div className="absolute top-1/2 -left-3 w-3 h-3 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-pulse-soft" style={{ animationDelay: '0.5s' }}></div>
+            </div>
+
+            {/* Enhanced typography */}
+            <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text">
+              {title}
+            </h3>
+            
+            <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto leading-relaxed">
+              {description}
+            </p>
+
+            {/* Enhanced action button */}
+            {action && (
+              <div className="space-y-4">
+                <Button 
+                  onClick={action.onClick} 
+                  size="lg"
+                  className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 hover:from-purple-700 hover:via-blue-700 hover:to-indigo-700 text-white font-semibold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                >
+                  <Icon className="w-5 h-5 mr-2" />
+                  {action.label}
+                </Button>
+                
+                {/* Subtle hint text */}
+                <p className="text-sm text-slate-500 mt-4">
+                  Or drag and drop your CSV file anywhere to get started
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "simple") {
+    return (
+      <div className={cn("text-center py-8", className)}>
+        <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+          <Icon className="w-8 h-8 text-slate-500" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
+        <p className="text-slate-600 mb-4 max-w-sm mx-auto text-sm leading-relaxed">{description}</p>
+        {action && (
+          <Button onClick={action.onClick} variant="outline" size="sm" className="mt-2">
+            {action.label}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  // Default variant with enhanced styling
   return (
     <div className={cn("text-center py-12", className)}>
-      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <Icon className="w-8 h-8 text-slate-400" />
+      <div className="relative">
+        {/* Background decoration */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-50 via-white to-slate-50 rounded-2xl"></div>
+        
+        <div className="relative p-8">
+          {/* Enhanced icon container */}
+          <div className="w-20 h-20 bg-gradient-to-br from-slate-100 via-slate-50 to-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
+            <Icon className="w-10 h-10 text-slate-600" />
+          </div>
+          
+          <h3 className="text-xl font-bold text-slate-900 mb-3">{title}</h3>
+          <p className="text-slate-600 mb-6 max-w-md mx-auto leading-relaxed">{description}</p>
+          
+          {action && (
+            <Button 
+              onClick={action.onClick} 
+              className="bg-slate-900 hover:bg-slate-800 text-white font-medium px-6 py-2.5 rounded-lg transition-colors duration-200"
+            >
+              {action.label}
+            </Button>
+          )}
+        </div>
       </div>
-      <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
-      <p className="text-slate-600 mb-6 max-w-md mx-auto">{description}</p>
-      {action && (
-        <Button onClick={action.onClick} className="inline-flex items-center gap-2">
-          {action.label}
-        </Button>
-      )}
     </div>
   );
 }
