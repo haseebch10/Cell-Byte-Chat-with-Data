@@ -41,11 +41,28 @@ const tRPCClient = {
     const response = await fetch("/api/trpc/data.processCSV", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ "0": { "json": { csvData, filename } } }),
+      body: JSON.stringify({ "json": { csvData, filename } }),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     const data = await response.json();
-    return data[0]?.result?.data?.json || data.result.data.json;
+    
+    // Handle nested structure like getSampleData
+    if (data.result?.data?.json) {
+      return data.result.data.json;
+    } else if (data.result?.data) {
+      const resultData = data.result.data;
+      if (resultData.json) {
+        return resultData.json;
+      } else {
+        return resultData;
+      }
+    } else if (data.json) {
+      return data.json;
+    } else if (data.success !== undefined) {
+      return data;
+    }
+    
+    throw new Error("Unexpected response format from server");
   },
 
   async processQuery(query: string, datasetId: string) {
@@ -168,7 +185,6 @@ export function QueryInterface() {
 
       if (result.success) {
         const datasetId = result.datasetId || Math.random().toString(36).substr(2, 9);
-        console.log("Setting dataset with ID:", datasetId);
         
         setCurrentDataset({
           id: datasetId,
@@ -177,15 +193,30 @@ export function QueryInterface() {
           rowCount: result.rowCount || 0,
           preview: result.preview || [],
         });
+        
+        addMessage({
+          type: "assistant",
+          content: `✅ Successfully uploaded "${file.name}"!\n\nDataset contains ${result.rowCount || 0} rows and ${(result.schema || []).length} columns.\n\nYou can now ask questions about your data.`
+        });
       } else {
-        alert(`Failed to process CSV: ${result.error}`);
+        const errorMsg = result.error || "Unknown error occurred";
+        alert(`Failed to process CSV: ${errorMsg}`);
+        addMessage({
+          type: "assistant",
+          content: `❌ Failed to process CSV file: ${errorMsg}`
+        });
       }
     } catch (error) {
-      alert("Error processing file");
+      const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
+      alert(`Error processing file: ${errorMsg}`);
+      addMessage({
+        type: "assistant",
+        content: `❌ Error processing file: ${errorMsg}`
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [setCurrentDataset, setIsLoading]);
+  }, [setCurrentDataset, setIsLoading, addMessage]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
