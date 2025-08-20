@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
-import { DataVisualization } from "@/components/data-visualization";
 import { cn } from "@/lib/utils";
 
 
@@ -107,30 +106,29 @@ export function QueryInterface() {
         let content = `Here are the results for your query:\n\n**Generated SQL:** \`${data.sql || "No SQL generated"}\`\n\n`;
         
         if (data.result && data.result.length > 0) {
-          content += "**Results:**";
-          
-          if (data.interpretation) {
-            addMessage({
-              type: "assistant",
-              content,
-              data: data.result,
-              chartConfig: {
-                type: data.interpretation.chartType as "bar" | "line" | "pie",
-                xField: Object.keys(data.result[0] || {})[0] || "x",
-                yField: Object.keys(data.result[0] || {})[1] || "y",
-              },
-            });
+          if (data.displayType === "number") {
+            const value = Object.values(data.result[0])[0];
+            const label = Object.keys(data.result[0])[0];
+            content += `**Result:** ${typeof value === 'number' ? value.toLocaleString() : value} ${label.replace(/_/g, ' ')}`;
           } else {
-            // No chart config but we have results
-            addMessage({
-              type: "assistant", 
-              content: content + "\n\n" + JSON.stringify(data.result, null, 2)
-            });
+            content += `**Results:** Found ${data.result.length} record${data.result.length !== 1 ? 's' : ''}. View the analysis in the panel on the right →`;
           }
+          
+          addMessage({
+            type: "assistant",
+            content,
+            data: data.result,
+            displayType: data.displayType || "chart",
+            sql: data.sql,
+          });
         } else {
           // No results but query was successful
           content += "**No results found for your query.**";
-          addMessage({ type: "assistant", content });
+          addMessage({ 
+            type: "assistant", 
+            content,
+            sql: data.sql,
+          });
         }
       } else {
         // Query failed - show detailed error
@@ -344,19 +342,11 @@ export function QueryInterface() {
               </div>
             ) : (
               <div>
-                <div className="bg-slate-100 rounded-lg p-4 mb-3">
+                <div className="bg-slate-100 rounded-lg p-4">
                   <div className="text-sm text-slate-800 whitespace-pre-wrap">
                     {message.content}
                   </div>
                 </div>
-                {message.data && message.chartConfig && (
-                  <div className="bg-white border border-slate-200 rounded-lg p-4">
-                    <DataVisualization
-                      data={message.data}
-                      chartConfig={message.chartConfig}
-                    />
-                  </div>
-                )}
               </div>
             )}
           </div>

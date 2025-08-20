@@ -43,8 +43,6 @@ const COLORS = [
 ];
 
 export function DataVisualization({ data, chartConfig }: Props) {
-  const [activeChartType, setActiveChartType] = useState<ChartConfig["type"]>(chartConfig.type);
-
   if (!data || data.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-muted-foreground bg-muted/30 rounded">
@@ -54,7 +52,7 @@ export function DataVisualization({ data, chartConfig }: Props) {
   }
 
   const renderChart = () => {
-    switch (activeChartType) {
+    switch (chartConfig.type) {
       case "bar":
         return (
           <ResponsiveContainer width="100%" height={300}>
@@ -123,13 +121,9 @@ export function DataVisualization({ data, chartConfig }: Props) {
   };
 
   const downloadChart = async () => {
-    // This is a simplified implementation
-    // In a real app, you'd use a library like html2canvas or export the chart as SVG
     try {
       const chartElement = document.querySelector('[data-chart="true"]');
       if (!chartElement) return;
-
-      // For now, just show an alert - implement actual image export in production
       alert("Chart export functionality would be implemented here using html2canvas or similar library");
     } catch (error) {
       console.error("Failed to export chart:", error);
@@ -138,50 +132,20 @@ export function DataVisualization({ data, chartConfig }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Chart Type Selector */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1">
-          <Button
-            variant={activeChartType === "bar" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveChartType("bar")}
-          >
-            <BarChart3 className="h-3 w-3 mr-1" />
-            Bar
-          </Button>
-          <Button
-            variant={activeChartType === "line" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveChartType("line")}
-          >
-            <LineChart className="h-3 w-3 mr-1" />
-            Line
-          </Button>
-          <Button
-            variant={activeChartType === "pie" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveChartType("pie")}
-          >
-            <PieChart className="h-3 w-3 mr-1" />
-            Pie
-          </Button>
-        </div>
-        
+      {/* Chart */}
+      <div 
+        className="bg-background border rounded-lg p-4 relative"
+        data-chart="true"
+      >
         <Button
           variant="outline"
           size="sm"
           onClick={downloadChart}
+          className="absolute top-2 right-2 z-10"
         >
           <Download className="h-3 w-3 mr-1" />
           Export PNG
         </Button>
-      </div>
-
-      {/* Chart */}
-      <div 
-        className="bg-background border rounded-lg p-4"
-        data-chart="true"
-      >
         {renderChart()}
       </div>
 

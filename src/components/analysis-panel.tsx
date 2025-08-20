@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Database, Table, BarChart3, Download, Copy } from "lucide-react";
+import { Database, Table, BarChart3, Download, Copy, ArrowLeft, BarChart, LineChart, PieChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
@@ -10,48 +10,183 @@ import { downloadAsCSV } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 export function AnalysisPanel() {
-  const { currentDataset, chatHistory } = useData();
-  const [activeTab, setActiveTab] = useState<"explore" | "examine">("explore");
+  const { 
+    currentDataset, 
+    currentAnalysis, 
+    analysisMode, 
+    setAnalysisMode 
+  } = useData();
+  
+  const [selectedChartType, setSelectedChartType] = useState<"bar" | "line" | "pie">("bar");
 
-  // Get the latest assistant message with data
-  const latestDataMessage = chatHistory
-    .filter(msg => msg.type === "assistant" && msg.data)
-    .slice(-1)[0];
-
-  const exportResults = (messageData: any[], filename: string) => {
-    downloadAsCSV(messageData, `${filename}-results.csv`);
+  const exportResults = (data: any[], filename: string) => {
+    downloadAsCSV(data, `${filename}-results.csv`);
   };
 
-  const copyTable = () => {
-    // Copy functionality can be implemented here
-    console.log("Copy table functionality");
+  const renderNumberDisplay = (data: any[]) => {
+    if (!data || data.length === 0) return null;
+    
+    const value = Object.values(data[0])[0] as number;
+    const label = Object.keys(data[0])[0];
+    
+    return (
+      <div className="text-center py-8">
+        <div className="text-5xl font-bold text-purple-600 mb-2">
+          {typeof value === 'number' ? value.toLocaleString() : value}
+        </div>
+        <div className="text-lg text-slate-600 capitalize">
+          {label.replace(/_/g, ' ')}
+        </div>
+      </div>
+    );
   };
 
+  const renderChartDisplay = (data: any[]) => {
+    if (!data || data.length === 0) return null;
+    
+    const chartConfig = {
+      type: selectedChartType,
+      xField: Object.keys(data[0])[0] || "x",
+      yField: Object.keys(data[0])[1] || "y",
+    };
+
+    return (
+      <div>
+        {/* Chart Type Selector */}
+        <div className="flex gap-2 mb-4">
+          <Button
+            variant={selectedChartType === "bar" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedChartType("bar")}
+            className="flex items-center gap-2"
+          >
+            <BarChart className="w-4 h-4" />
+            Bar
+          </Button>
+          <Button
+            variant={selectedChartType === "line" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedChartType("line")}
+            className="flex items-center gap-2"
+          >
+            <LineChart className="w-4 h-4" />
+            Line
+          </Button>
+          <Button
+            variant={selectedChartType === "pie" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedChartType("pie")}
+            className="flex items-center gap-2"
+          >
+            <PieChart className="w-4 h-4" />
+            Pie
+          </Button>
+        </div>
+
+        {/* Chart Visualization */}
+        <DataVisualization
+          data={data}
+          chartConfig={chartConfig}
+        />
+      </div>
+    );
+  };
+
+  // Show loading state when no dataset
   if (!currentDataset) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="border-b border-slate-200 mb-6">
-          <div className="flex space-x-8">
-            <button className="pb-3 border-b-2 border-transparent text-slate-500">
-              Explore
-            </button>
-            <button className="pb-3 border-b-2 border-transparent text-slate-400">
-              Examine
-            </button>
-          </div>
-        </div>
-        
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500">Load a dataset to start analysis</p>
-          </div>
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+          <p className="text-slate-500">Load a dataset to start analysis</p>
         </div>
       </div>
     );
   }
 
+  // Show analysis results when in analysis mode
+  if (analysisMode && currentAnalysis) {
     return (
+      <div className="h-full flex flex-col space-y-6">
+        {/* Analysis Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setAnalysisMode(false)}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Overview
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportResults(currentAnalysis.data, `analysis-${Date.now()}`)}
+          >
+            <Download className="w-3 h-3 mr-1" />
+            Export
+          </Button>
+        </div>
+
+        {/* SQL Query Display */}
+        <div className="bg-slate-50 p-4 rounded-lg border">
+          <h3 className="font-semibold text-slate-900 mb-2">Generated SQL</h3>
+          <code className="text-sm text-slate-700 bg-slate-100 px-2 py-1 rounded">
+            {currentAnalysis.sql}
+          </code>
+        </div>
+
+        {/* Results Display */}
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold text-slate-900 mb-4">Analysis Results</h2>
+          
+          {currentAnalysis.displayType === "number" ? 
+            renderNumberDisplay(currentAnalysis.data) : 
+            renderChartDisplay(currentAnalysis.data)
+          }
+        </div>
+
+        {/* Data Table for Chart Results */}
+        {currentAnalysis.displayType === "chart" && currentAnalysis.data.length > 0 && (
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="font-semibold text-slate-900 mb-3">Raw Data</h3>
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto max-h-64">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      {Object.keys(currentAnalysis.data[0] || {}).map((key) => (
+                        <th key={key} className="text-left px-3 py-2 font-medium text-slate-700 border-b border-slate-200">
+                          {key.replace(/_/g, ' ').toUpperCase()}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {currentAnalysis.data.slice(0, 10).map((row, i) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        {Object.values(row).map((value, j) => (
+                          <td key={j} className="px-3 py-2 text-slate-900">
+                            {typeof value === 'number' ? value.toLocaleString() : String(value)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Show dataset overview by default
+  return (
     <div className="h-full flex flex-col space-y-6">
       {/* Dataset Overview Stats */}
       <div>
@@ -127,32 +262,6 @@ export function AnalysisPanel() {
           </div>
         </div>
       </div>
-
-      {/* Query Results (when available) */}
-      {latestDataMessage && (
-        <div className="border-t border-slate-200 pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-900">
-              Latest Query Results ({latestDataMessage.data?.length || 0} records)
-            </h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportResults(latestDataMessage.data!, `query-${Date.now()}`)}
-            >
-              <Download className="w-3 h-3 mr-1" />
-              Export CSV
-            </Button>
-          </div>
-
-          {latestDataMessage.data && latestDataMessage.chartConfig && (
-            <DataVisualization
-              data={latestDataMessage.data}
-              chartConfig={latestDataMessage.chartConfig}
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 }

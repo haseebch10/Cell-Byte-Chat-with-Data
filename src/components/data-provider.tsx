@@ -16,11 +16,28 @@ type DatasetInfo = {
   preview: Record<string, any>[];
 };
 
+type AnalysisResult = {
+  data: any[];
+  sql: string;
+  displayType: "number" | "chart";
+  interpretation: {
+    aggregation: string;
+    groupBy: string[];
+    filters: any[];
+    chartType: "bar" | "line" | "pie";
+    displayType: "number" | "chart";
+  };
+};
+
 type DataContextType = {
   currentDataset: DatasetInfo | null;
   setCurrentDataset: (dataset: DatasetInfo | null) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
+  currentAnalysis: AnalysisResult | null;
+  setCurrentAnalysis: (analysis: AnalysisResult | null) => void;
+  analysisMode: boolean;
+  setAnalysisMode: (mode: boolean) => void;
   chatHistory: Array<{
     id: string;
     type: "user" | "assistant";
@@ -32,6 +49,8 @@ type DataContextType = {
       xField: string;
       yField: string;
     };
+    displayType?: "number" | "chart";
+    sql?: string;
   }>;
   addMessage: (message: {
     type: "user" | "assistant";
@@ -42,6 +61,8 @@ type DataContextType = {
       xField: string;
       yField: string;
     };
+    displayType?: "number" | "chart";
+    sql?: string;
   }) => void;
   clearHistory: () => void;
 };
@@ -51,6 +72,8 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: ReactNode }) {
   const [currentDataset, setCurrentDataset] = useState<DatasetInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisResult | null>(null);
+  const [analysisMode, setAnalysisMode] = useState(false);
   const [chatHistory, setChatHistory] = useState<DataContextType["chatHistory"]>([]);
 
   const addMessage = (message: Omit<DataContextType["chatHistory"][0], "id" | "timestamp">) => {
@@ -60,10 +83,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
       timestamp: new Date(),
     };
     setChatHistory(prev => [...prev, newMessage]);
+    
+    // If this is an assistant message with analysis data, update analysis state
+    if (message.type === "assistant" && message.data && message.displayType) {
+      setCurrentAnalysis({
+        data: message.data,
+        sql: message.sql || "",
+        displayType: message.displayType,
+        interpretation: {
+          aggregation: "count",
+          groupBy: [],
+          filters: [],
+          chartType: message.chartConfig?.type || "bar",
+          displayType: message.displayType,
+        },
+      });
+      setAnalysisMode(true);
+    }
   };
 
   const clearHistory = () => {
     setChatHistory([]);
+    setCurrentAnalysis(null);
+    setAnalysisMode(false);
   };
 
   return (
@@ -73,6 +115,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setCurrentDataset,
         isLoading,
         setIsLoading,
+        currentAnalysis,
+        setCurrentAnalysis,
+        analysisMode,
+        setAnalysisMode,
         chatHistory,
         addMessage,
         clearHistory,

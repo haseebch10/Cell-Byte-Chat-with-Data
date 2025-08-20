@@ -435,6 +435,11 @@ export const dataRouter = createTRPCRouter({
         // Generate SQL representation
         const sql = queryAnalysis?.sql || generateFallbackSQL(groupByField, aggregateField, aggregateType);
 
+        // Determine display type based on result structure
+        const displayType = result.length === 1 && Object.keys(result[0]).length === 1 
+          ? "number" 
+          : "chart";
+
         return {
           success: true,
           interpretation: {
@@ -442,9 +447,11 @@ export const dataRouter = createTRPCRouter({
             groupBy: groupByField ? [groupByField] : [],
             filters: [],
             chartType,
+            displayType,
           },
           sql,
           result: result.slice(0, 20),
+          displayType,
         };
 
       } catch (error) {
