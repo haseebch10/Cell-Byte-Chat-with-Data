@@ -13,6 +13,7 @@ export function QueryInterface() {
   const { currentDataset, setCurrentDataset, addMessage, isLoading, setIsLoading } = useData();
   const [inputValue, setInputValue] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const processQueryMutation = api.data.processQuery.useMutation({
     onSuccess: (data) => {
@@ -47,6 +48,30 @@ export function QueryInterface() {
     { dataset: "germany_sample" },
     { enabled: false }
   );
+
+  const processCSVMutation = api.data.processCSV.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        setCurrentDataset({
+          id: Math.random().toString(36).substr(2, 9),
+          name: data.filename || uploadedFile?.name || "Uploaded Dataset",
+          schema: data.schema,
+          rowCount: data.rowCount,
+          preview: data.preview,
+        });
+      } else {
+        // Handle CSV parsing errors
+        console.error("CSV processing failed:", data.error);
+        alert(`Failed to process CSV: ${data.error}`);
+      }
+      setIsLoading(false);
+    },
+    onError: (error) => {
+      console.error("CSV processing error:", error);
+      alert(`Error processing CSV: ${error.message}`);
+      setIsLoading(false);
+    },
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,12 +111,39 @@ export function QueryInterface() {
     setIsLoading(false);
   };
 
+  const processFile = async (file: File) => {
+    if (!file.name.endsWith('.csv')) {
+      alert('Please upload a CSV file');
+      return;
+    }
+
+    setUploadedFile(file);
+    setIsLoading(true);
+    
+    const csvData = await file.text();
+    processCSVMutation.mutate({
+      csvData,
+      filename: file.name,
+    });
+  };
+
   const handleDrop = React.useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    // TODO: Implement file upload
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      processFile(file);
+    }
   }, []);
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      processFile(file);
+    }
+  };
 
   const handleDrag = React.useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -136,9 +188,19 @@ export function QueryInterface() {
               <p className="text-sm text-slate-600 mb-4">
                 Drag and drop your CSV file here, or
               </p>
-              <Button variant="outline" className="mb-4">
-                Choose File
-              </Button>
+              <label htmlFor="file-upload">
+                <Button variant="outline" className="mb-4 cursor-pointer" asChild>
+                  <span>Choose File</span>
+                </Button>
+              </label>
+              <input
+                id="file-upload"
+                type="file"
+                accept=".csv"
+                onChange={handleFileInput}
+                className="hidden"
+                disabled={isLoading}
+              />
             </div>
           </Card>
 

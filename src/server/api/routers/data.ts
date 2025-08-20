@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import { SAMPLE_GERMANY_DATA, SAMPLE_TREATMENT_COSTS_DATA, inferSchema } from "@/lib/sample-data";
+import Papa from "papaparse";
 
 export const dataRouter = createTRPCRouter({
   // Upload and process CSV data
@@ -10,23 +11,53 @@ export const dataRouter = createTRPCRouter({
       filename: z.string(),
     }))
     .mutation(async ({ input }) => {
-      // For now, return mock schema inference
-      // TODO: Implement actual CSV parsing and schema inference
-      return {
-        success: true,
-        schema: [
-          { name: "id", type: "number", sample: "1" },
-          { name: "name", type: "string", sample: "Sample" },
-          { name: "value", type: "number", sample: "100" },
-          { name: "date", type: "date", sample: "2023-01-01" },
-        ],
-        rowCount: 1000,
-        preview: [
-          { id: 1, name: "Sample 1", value: 100, date: "2023-01-01" },
-          { id: 2, name: "Sample 2", value: 200, date: "2023-01-02" },
-          { id: 3, name: "Sample 3", value: 150, date: "2023-01-03" },
-        ],
-      };
+      try {
+        // Parse CSV data using Papa Parse
+        const parseResult = Papa.parse(input.csvData, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (header) => header.trim(), // Clean headers
+        });
+
+        if (parseResult.errors.length > 0) {
+          console.error("CSV parsing errors:", parseResult.errors);
+          return {
+            success: false,
+            error: "Failed to parse CSV file. Please check the format.",
+            details: parseResult.errors[0]?.message || "Unknown parsing error",
+          };
+        }
+
+        const data = parseResult.data as Record<string, any>[];
+        
+        if (data.length === 0) {
+          return {
+            success: false,
+            error: "CSV file appears to be empty or has no valid data rows.",
+          };
+        }
+
+        // Infer schema from actual data
+        const schema = inferSchema(data);
+        
+        // Get preview data (first 5 rows)
+        const preview = data.slice(0, 5);
+
+        return {
+          success: true,
+          schema,
+          rowCount: data.length,
+          preview,
+          filename: input.filename,
+        };
+      } catch (error) {
+        console.error("Error processing CSV:", error);
+        return {
+          success: false,
+          error: "An unexpected error occurred while processing the CSV file.",
+          details: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
     }),
 
   // Get sample data
