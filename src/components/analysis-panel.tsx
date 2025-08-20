@@ -220,7 +220,7 @@ export function AnalysisPanel() {
   // Show analysis results when in analysis mode
   if (analysisMode && currentAnalysis) {
     return (
-      <div className="flex-1 flex flex-col space-y-6 min-h-0">
+      <div className="space-y-6 p-6 overflow-y-auto">
         <div className="flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <Button
@@ -249,8 +249,8 @@ export function AnalysisPanel() {
           />
         </div>
 
-        <div className="flex-1 min-h-0 flex flex-col">
-          <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <div>
+          <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-slate-900">Analysis Results</h2>
             
             <div className="flex items-center gap-2">
@@ -278,14 +278,12 @@ export function AnalysisPanel() {
             </div>
           </div>
           
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {currentAnalysis.displayType === "number" ? 
-              renderNumberDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) : 
-              currentAnalysis.displayType === "table" ?
-              renderTableDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) :
-              renderChartDisplay(currentAnalysis.data)
-            }
-          </div>
+          {currentAnalysis.displayType === "number" ? 
+            renderNumberDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) : 
+            currentAnalysis.displayType === "table" ?
+            renderTableDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) :
+            renderChartDisplay(currentAnalysis.data)
+          }
         </div>
 
         {currentAnalysis.displayType === "chart" && selectedViewType === "chart" && currentAnalysis.data.length > 0 && (
