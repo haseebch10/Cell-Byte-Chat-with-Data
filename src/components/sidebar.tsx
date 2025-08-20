@@ -5,7 +5,6 @@ import Image from "next/image";
 import { Plus, Folder, BarChart3, User, Settings, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useData } from "@/components/data-provider";
-import { cn } from "@/lib/utils";
 
 export function Sidebar() {
   const { chatHistory, clearHistory } = useData();
