@@ -2,6 +2,8 @@ import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import { SAMPLE_GERMANY_DATA, SAMPLE_TREATMENT_COSTS_DATA, inferSchema } from "@/lib/sample-data";
 import Papa from "papaparse";
+import fs from "fs/promises";
+import path from "path";
 
 export const dataRouter = createTRPCRouter({
   // Upload and process CSV data
@@ -66,15 +68,63 @@ export const dataRouter = createTRPCRouter({
       dataset: z.enum(["germany_sample", "treatment_costs"]),
     }))
     .query(async ({ input }) => {
-      const data = input.dataset === "germany_sample" 
-        ? SAMPLE_GERMANY_DATA 
-        : SAMPLE_TREATMENT_COSTS_DATA;
-      
-      return {
-        success: true,
-        data,
-        schema: inferSchema(data),
-      };
+      try {
+        // Try to load from CSV files first
+        const filename = input.dataset === "germany_sample" 
+          ? "case_study_germany_sample.csv"
+          : "case_study_germany_treatment_costs_sample.csv";
+        
+        const filePath = path.join(process.cwd(), "data", "samples", filename);
+        
+        try {
+          // Check if CSV file exists and load it
+          const csvContent = await fs.readFile(filePath, "utf-8");
+          
+          const parseResult = Papa.parse(csvContent, {
+            header: true,
+            skipEmptyLines: true,
+            transformHeader: (header) => header.trim(),
+          });
+
+          if (parseResult.errors.length > 0) {
+            console.warn(`CSV parsing errors for ${filename}:`, parseResult.errors);
+          }
+
+          const data = parseResult.data as Record<string, any>[];
+          
+          if (data.length > 0) {
+            return {
+              success: true,
+              data,
+              schema: inferSchema(data),
+              source: "csv_file",
+              filename,
+            };
+          }
+        } catch (fileError) {
+          // CSV file doesn't exist or can't be read, fall back to hardcoded data
+          console.log(`CSV file ${filename} not found, using hardcoded sample data`);
+        }
+        
+        // Fallback to hardcoded data
+        const data = input.dataset === "germany_sample" 
+          ? SAMPLE_GERMANY_DATA 
+          : SAMPLE_TREATMENT_COSTS_DATA;
+        
+        return {
+          success: true,
+          data,
+          schema: inferSchema(data),
+          source: "hardcoded",
+        };
+      } catch (error) {
+        console.error("Error loading sample data:", error);
+        return {
+          success: false,
+          error: "Failed to load sample data",
+          details: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
     }),
 
   // Process natural language query
