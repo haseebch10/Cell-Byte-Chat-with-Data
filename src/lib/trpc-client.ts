@@ -1,9 +1,6 @@
 /**
  * tRPC Client Functions
- * Extracted from query-interface.tsx for better organization
  */
-
-// tRPC client for HTTP endpoints
 export const tRPCClient = {
   async getSampleData(dataset: "germany_sample" | "treatment_costs") {
     const inputParam = JSON.stringify({

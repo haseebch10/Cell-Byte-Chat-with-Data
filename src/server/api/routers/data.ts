@@ -17,7 +17,7 @@ const openai = env.OPENAI_API_KEY ? new OpenAI({
 
 
 
-// Helper function to convert natural language to SQL using OpenAI
+// Convert natural language queries to SQL using OpenAI
 async function naturalLanguageToSQL(query: string, schema: any[]): Promise<{
   success: boolean;
   sql?: string;
@@ -128,7 +128,7 @@ Chart type rules:
   }
 }
 
-// Helper function to simulate basic SQL execution with JavaScript
+// Execute SQL simulation with JavaScript aggregation
 function executeBasicSQL(dataset: any[], queryAnalysis: {
   aggregationType?: string;
   groupByField?: string;

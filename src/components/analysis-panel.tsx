@@ -55,7 +55,7 @@ export function AnalysisPanel() {
     
     const chartElement = document.querySelector('[data-chart-container="true"]') as HTMLElement;
     if (!chartElement) {
-      alert("Visualization not found. Please make sure it is fully loaded.");
+      console.error("Chart element not found for PNG export");
       return;
     }
     
@@ -65,7 +65,7 @@ export function AnalysisPanel() {
       
       await downloadAsPNG(chartElement, filename);
     } catch (error) {
-      alert("Failed to export visualization. Please try again.");
+      console.error("Failed to export visualization:", error);
     }
   };
 
