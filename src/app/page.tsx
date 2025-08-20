@@ -1,34 +1,28 @@
-import { DataIngestion } from "@/components/data-ingestion";
-import { ChatInterface } from "@/components/chat-interface";
 import { DataProvider } from "@/components/data-provider";
+import { Sidebar } from "@/components/sidebar";
+import { QueryInterface } from "@/components/query-interface";
+import { AnalysisPanel } from "@/components/analysis-panel";
 
 export default function HomePage() {
   return (
     <DataProvider>
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <header className="mb-8 text-center">
-            <h1 className="text-4xl font-bold text-foreground mb-2">
-              CellByte - Chat with Data
-            </h1>
-            <p className="text-muted-foreground text-lg">
-              Turn natural language questions into analytics over your tabular data
-            </p>
-          </header>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Data Ingestion Panel */}
-            <div className="lg:col-span-1">
-              <DataIngestion />
-            </div>
-
-            {/* Chat Interface */}
-            <div className="lg:col-span-2">
-              <ChatInterface />
-            </div>
+      <div className="min-h-screen bg-slate-50 flex">
+        {/* Left Sidebar */}
+        <Sidebar />
+        
+        {/* Main Content */}
+        <div className="flex-1 flex">
+          {/* Query Interface */}
+          <div className="flex-1 p-6">
+            <QueryInterface />
+          </div>
+          
+          {/* Analysis Panel */}
+          <div className="w-96 p-6 bg-white border-l border-slate-200">
+            <AnalysisPanel />
           </div>
         </div>
-      </main>
+      </div>
     </DataProvider>
   );
 }
