@@ -279,8 +279,8 @@ export function QueryInterface() {
 
   if (!currentDataset) {
     return (
-      <div className="h-full flex flex-col items-center justify-center px-4 py-8">
-        <div className="w-full max-w-lg">
+      <div className="flex-1 flex flex-col justify-center px-4 py-4 min-h-0 overflow-y-auto">
+        <div className="w-full max-w-lg mx-auto">
           <EmptyState
             icon={Database}
             title="Welcome to CellByte Analytics"
@@ -326,45 +326,46 @@ export function QueryInterface() {
             }}
           />
           
-          <div className="mt-8">
-            <div className="text-center mb-6">
+          <div className="mt-4">
+            <div className="text-center mb-3">
               <p className="text-sm text-slate-500">Or upload your own data:</p>
             </div>
 
-          <Card
-            className={cn(
-              "p-8 border-2 border-dashed transition-colors cursor-pointer",
-              dragActive ? "border-purple-400 bg-purple-50" : "border-slate-300",
-              isLoading && "opacity-50 pointer-events-none"
-            )}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <div className="text-center">
-              <Upload className="w-8 h-8 text-slate-400 mx-auto mb-4" />
-              <p className="text-sm text-slate-600 mb-4">
-                Drag and drop your CSV file here, or
-              </p>
-              <label htmlFor="file-upload">
-                <Button variant="outline" className="mb-4 cursor-pointer" asChild>
-                  <span>Choose File</span>
-                </Button>
-              </label>
-              <input
-                id="file-upload"
-                type="file"
-                accept=".csv"
-                onChange={handleFileInput}
-                className="hidden"
-                disabled={isLoading}
-              />
-            </div>
-          </Card>
+            <Card
+              className={cn(
+                "p-4 border-2 border-dashed transition-colors cursor-pointer",
+                dragActive ? "border-purple-400 bg-purple-50" : "border-slate-300",
+                isLoading && "opacity-50 pointer-events-none"
+              )}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <div className="text-center">
+                <Upload className="w-5 h-5 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm text-slate-600 mb-2">
+                  Drag and drop your CSV file here, or
+                </p>
+                <label htmlFor="file-upload">
+                  <Button variant="outline" size="sm" className="cursor-pointer" asChild>
+                    <span>Choose File</span>
+                  </Button>
+                </label>
+                <input
+                  id="file-upload"
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileInput}
+                  className="hidden"
+                  disabled={isLoading}
+                />
+              </div>
+            </Card>
+          </div>
 
           {isLoading && loadingType && (
-            <div className="mt-6">
+            <div className="mt-4">
               <ContextualLoading 
                 type={loadingType}
                 size="md"
@@ -388,7 +389,7 @@ export function QueryInterface() {
           )}
           
           {error && (
-            <div className="mt-6">
+            <div className="mt-4">
               <ErrorState
                 type={error.type}
                 title={error.title}
@@ -398,15 +399,14 @@ export function QueryInterface() {
               />
             </div>
           )}
-          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col px-4 lg:px-0">
-      <div className="mb-4 sm:mb-6">
+    <div className="flex-1 flex flex-col px-4 lg:px-0 min-h-0">
+      <div className="mb-4 sm:mb-6 flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-4">
           <div>
             <h1 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">Query Your Data</h1>
@@ -522,7 +522,7 @@ export function QueryInterface() {
         </div>
       )}
 
-      <div className="border-t border-slate-200 pt-4">
+      <div className="border-t border-slate-200 pt-4 flex-shrink-0">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
             <Input

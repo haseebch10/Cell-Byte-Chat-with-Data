@@ -16,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={`font-sans ${inter.variable} antialiased`}>
         <TRPCReactProvider>
-          <div className="min-h-screen bg-background">{children}</div>
+          <div className="h-screen bg-background overflow-hidden">{children}</div>
         </TRPCReactProvider>
       </body>
     </html>

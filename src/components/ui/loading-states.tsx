@@ -218,42 +218,42 @@ export function EmptyState({
 }: EmptyStateProps) {
   if (variant === "welcome") {
     return (
-      <div className={cn("text-center py-12 px-6", className)}>
+      <div className={cn("text-center py-6 px-4", className)}>
         <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-3xl opacity-60"></div>
-          <div className="relative bg-white/80 backdrop-blur-sm border border-white/20 rounded-3xl p-8 sm:p-12 shadow-xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-2xl opacity-60"></div>
+          <div className="relative bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl p-6 shadow-xl">
             
-            <div className="relative mx-auto mb-8 animate-float">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-600 animate-gradient rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg hover:scale-105 transition-transform duration-300">
-                <Icon className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+            <div className="relative mx-auto mb-6 animate-float">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-600 animate-gradient rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg hover:scale-105 transition-transform duration-300">
+                <Icon className="w-8 h-8 text-white" />
               </div>
               
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full animate-pulse-soft"></div>
-              <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full animate-pulse-soft" style={{ animationDelay: '1s' }}></div>
-              <div className="absolute top-1/2 -left-3 w-3 h-3 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-pulse-soft" style={{ animationDelay: '0.5s' }}></div>
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full animate-pulse-soft"></div>
+              <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full animate-pulse-soft" style={{ animationDelay: '1s' }}></div>
+              <div className="absolute top-1/2 -left-2 w-2 h-2 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-pulse-soft" style={{ animationDelay: '0.5s' }}></div>
             </div>
 
-            <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text">
+            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text">
               {title}
             </h3>
             
-            <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto leading-relaxed">
+            <p className="text-base text-slate-600 mb-6 max-w-md mx-auto leading-relaxed">
               {description}
             </p>
 
             {action && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <Button 
                   onClick={action.onClick} 
-                  size="lg"
-                  className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 hover:from-purple-700 hover:via-blue-700 hover:to-indigo-700 text-white font-semibold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                  size="default"
+                  className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 hover:from-purple-700 hover:via-blue-700 hover:to-indigo-700 text-white font-semibold px-6 py-2.5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
                 >
-                  <Icon className="w-5 h-5 mr-2" />
+                  <Database className="w-4 h-4 mr-2" />
                   {action.label}
                 </Button>
                 
-                <p className="text-sm text-slate-500 mt-4">
-                  Or drag and drop your CSV file anywhere to get started
+                <p className="text-xs text-slate-500 italic">
+                  Get started with pharmaceutical data analysis
                 </p>
               </div>
             )}

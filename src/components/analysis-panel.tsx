@@ -220,8 +220,8 @@ export function AnalysisPanel() {
   // Show analysis results when in analysis mode
   if (analysisMode && currentAnalysis) {
     return (
-      <div className="h-full flex flex-col space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="flex-1 flex flex-col space-y-6 min-h-0">
+        <div className="flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -235,20 +235,22 @@ export function AnalysisPanel() {
           </div>
         </div>
 
-        <div className="bg-slate-50 p-4 rounded-lg border">
+        <div className="bg-slate-50 p-4 rounded-lg border flex-shrink-0">
           <h3 className="font-semibold text-slate-900 mb-2">Generated SQL</h3>
           <code className="text-sm text-slate-700 bg-slate-100 px-2 py-1 rounded">
             {currentAnalysis.sql}
           </code>
         </div>
 
-        <FilterControls 
-          data={currentAnalysis.data} 
-          onFiltersChange={handleFiltersChange}
-        />
+        <div className="flex-shrink-0">
+          <FilterControls 
+            data={currentAnalysis.data} 
+            onFiltersChange={handleFiltersChange}
+          />
+        </div>
 
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-4">
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="flex items-center justify-between mb-4 flex-shrink-0">
             <h2 className="text-xl font-semibold text-slate-900">Analysis Results</h2>
             
             <div className="flex items-center gap-2">
@@ -276,12 +278,14 @@ export function AnalysisPanel() {
             </div>
           </div>
           
-          {currentAnalysis.displayType === "number" ? 
-            renderNumberDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) : 
-            currentAnalysis.displayType === "table" ?
-            renderTableDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) :
-            renderChartDisplay(currentAnalysis.data)
-          }
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {currentAnalysis.displayType === "number" ? 
+              renderNumberDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) : 
+              currentAnalysis.displayType === "table" ?
+              renderTableDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) :
+              renderChartDisplay(currentAnalysis.data)
+            }
+          </div>
         </div>
 
         {currentAnalysis.displayType === "chart" && selectedViewType === "chart" && currentAnalysis.data.length > 0 && (
@@ -323,7 +327,8 @@ export function AnalysisPanel() {
 
   // Enhanced dataset overview with responsive design and loading states  
   return (
-    <div className="h-full space-y-4 sm:space-y-6 overflow-y-auto p-4 sm:p-6">
+    <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 space-y-4 sm:space-y-6 overflow-y-auto p-4 sm:p-6">
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -473,6 +478,7 @@ export function AnalysisPanel() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
