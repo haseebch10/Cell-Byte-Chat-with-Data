@@ -1,77 +1,72 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Send, Upload, Database, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
-import { api } from "@/trpc/react";
 import { cn } from "@/lib/utils";
+
+// tRPC client (direct HTTP calls)
+const tRPCClient = {
+  async getSampleData(dataset: "germany_sample" | "treatment_costs") {
+    // Queries use GET with proper tRPC query string format
+    const inputParam = JSON.stringify({
+      "0": {
+        "json": { dataset }
+      }
+    });
+    
+    const url = `/api/trpc/data.getSampleData?batch=1&input=${encodeURIComponent(inputParam)}`;
+    
+    const response = await fetch(url, {
+      method: "GET",
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const data = await response.json();
+    
+    // Try different response structures based on the actual tRPC response format
+    if (data[0]?.result?.data?.json) {
+      // This is the correct structure for tRPC responses
+      return data[0].result.data.json;
+    } else if (data[0]?.result?.data) {
+      return data[0].result.data;
+    } else if (data[0]?.result) {
+      return data[0].result;
+    } else {
+      throw new Error("Unexpected response structure");
+    }
+  },
+  
+  async processCSV(csvData: string, filename: string) {
+    const response = await fetch("/api/trpc/data.processCSV", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ "0": { "json": { csvData, filename } } }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const data = await response.json();
+    return data[0]?.result?.data?.json || data.result.data.json;
+  },
+  
+  async processQuery(query: string, datasetId: string) {
+    const response = await fetch("/api/trpc/data.processQuery", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ "0": { "json": { query, datasetId } } }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const data = await response.json();
+    return data[0]?.result?.data?.json || data.result.data.json;
+  }
+};
 
 export function QueryInterface() {
   const { currentDataset, setCurrentDataset, addMessage, isLoading, setIsLoading } = useData();
   const [inputValue, setInputValue] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-
-  const processQueryMutation = api.data.processQuery.useMutation({
-    onSuccess: (data) => {
-      if (data.success) {
-        addMessage({
-          type: "assistant",
-          content: `Here are the results for your query. I interpreted your question and generated the following analysis:
-
-**SQL Query:** \`${data.sql}\`
-
-**Results:**`,
-          data: data.result,
-          chartConfig: {
-            type: data.interpretation.chartType as "bar" | "line" | "pie",
-            xField: Object.keys(data.result[0] || {})[0] || "x",
-            yField: Object.keys(data.result[0] || {})[1] || "y",
-          },
-        });
-      }
-      setIsLoading(false);
-    },
-    onError: (error) => {
-      addMessage({
-        type: "assistant",
-        content: `Sorry, I encountered an error processing your query: ${error.message}`,
-      });
-      setIsLoading(false);
-    },
-  });
-
-  const sampleDataQuery = api.data.getSampleData.useQuery(
-    { dataset: "germany_sample" },
-    { enabled: false }
-  );
-
-  const processCSVMutation = api.data.processCSV.useMutation({
-    onSuccess: (data) => {
-      if (data.success) {
-        setCurrentDataset({
-          id: Math.random().toString(36).substr(2, 9),
-          name: data.filename || uploadedFile?.name || "Uploaded Dataset",
-          schema: data.schema,
-          rowCount: data.rowCount,
-          preview: data.preview,
-        });
-      } else {
-        // Handle CSV parsing errors
-        console.error("CSV processing failed:", data.error);
-        alert(`Failed to process CSV: ${data.error}`);
-      }
-      setIsLoading(false);
-    },
-    onError: (error) => {
-      console.error("CSV processing error:", error);
-      alert(`Error processing CSV: ${error.message}`);
-      setIsLoading(false);
-    },
-  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,78 +76,86 @@ export function QueryInterface() {
     setInputValue("");
     setIsLoading(true);
 
-    addMessage({
-      type: "user",
-      content: userMessage,
-    });
+    addMessage({ type: "user", content: userMessage });
 
-    processQueryMutation.mutate({
-      query: userMessage,
-      datasetId: currentDataset.id,
-    });
-  };
-
-  const loadSampleData = async () => {
-    setIsLoading(true);
     try {
-      const result = await sampleDataQuery.refetch();
-      if (result.data?.success) {
-        setCurrentDataset({
-          id: "sample-germany",
-          name: "Germany Sample Dataset",
-          schema: result.data.schema,
-          rowCount: result.data.data.length,
-          preview: result.data.data,
+      const result = await tRPCClient.processQuery(userMessage, currentDataset.id);
+
+      if (result.success) {
+        addMessage({
+          type: "assistant",
+          content: `Here are the results for your query:\n\n**SQL Query:** \`${result.sql}\`\n\n**Results:**`,
+          data: result.result,
+          chartConfig: {
+            type: result.interpretation.chartType as "bar" | "line" | "pie",
+            xField: Object.keys(result.result[0] || {})[0] || "x",
+            yField: Object.keys(result.result[0] || {})[1] || "y",
+          },
         });
+      } else {
+        addMessage({ type: "assistant", content: `Query failed: ${(result as any).error || "Unknown error"}` });
       }
-    } catch (error) {
-      console.error("Failed to load sample data:", error);
+    } catch (err) {
+      addMessage({ type: "assistant", content: `Error: ${err}` });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
-  const processFile = async (file: File) => {
-    if (!file.name.endsWith('.csv')) {
-      alert('Please upload a CSV file');
+  const processFile = useCallback(async (file: File) => {
+    if (!file.name.endsWith(".csv")) {
+      alert("Please upload a CSV file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert(`File too large. Limit is 5MB.`);
       return;
     }
 
     setUploadedFile(file);
     setIsLoading(true);
-    
-    const csvData = await file.text();
-    processCSVMutation.mutate({
-      csvData,
-      filename: file.name,
-    });
-  };
 
-  const handleDrop = React.useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+    try {
+      const csvData = await file.text();
+      const result = await tRPCClient.processCSV(csvData, file.name);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      processFile(file);
+      if (result.success) {
+        setCurrentDataset({
+          id: Math.random().toString(36).substr(2, 9),
+          name: result.filename || file.name,
+          schema: result.schema || [],
+          rowCount: result.rowCount || 0,
+          preview: result.preview || [],
+        });
+      } else {
+        alert(`Failed to process CSV: ${result.error}`);
+      }
+    } catch (error) {
+      alert("Error processing file");
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  }, [setCurrentDataset, setIsLoading]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  }, [processFile]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      processFile(file);
+      processFile(e.target.files[0]);
     }
   };
 
-  const handleDrag = React.useCallback((e: React.DragEvent) => {
+  const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
   }, []);
 
   if (!currentDataset) {
@@ -167,7 +170,7 @@ export function QueryInterface() {
               Select documents to chat with
             </h2>
             <p className="text-slate-600">
-              Ask questions to extract insights directly from industry documents.
+              Upload a CSV file or load sample data to start asking questions.
             </p>
           </div>
 
@@ -206,9 +209,29 @@ export function QueryInterface() {
 
           {/* Sample Data Option */}
           <div className="mt-6 text-center">
-            <p className="text-sm text-slate-600 mb-2">Or try with sample data:</p>
+            <p className="text-sm text-slate-600 mb-4">Or try with sample data:</p>
             <Button
-              onClick={loadSampleData}
+              onClick={async () => {
+                setIsLoading(true);
+                try {
+                  const result = await tRPCClient.getSampleData("germany_sample");
+                  if (result.success) {
+                    setCurrentDataset({
+                      id: "sample-germany",
+                      name: "Germany Sample Dataset",
+                      schema: result.schema || [],
+                      rowCount: result.data?.length || 0,
+                      preview: result.data || [],
+                    });
+                  } else {
+                    alert("Failed to load sample data: " + result.error);
+                  }
+                } catch (error) {
+                  alert("Error loading sample data: " + error);
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
               disabled={isLoading}
               className="bg-purple-600 hover:bg-purple-700"
             >
@@ -254,7 +277,7 @@ export function QueryInterface() {
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask questions to extract insights directly from industry documents."
+              placeholder="Ask questions to extract insights from your data..."
               disabled={isLoading}
               className="pr-12 py-3 text-base border-slate-300 focus:border-purple-500 focus:ring-purple-500"
             />

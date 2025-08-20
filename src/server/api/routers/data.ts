@@ -14,6 +14,7 @@ export const dataRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       try {
+        
         // Parse CSV data using Papa Parse
         const parseResult = Papa.parse(input.csvData, {
           header: true,
@@ -43,8 +44,8 @@ export const dataRouter = createTRPCRouter({
         // Infer schema from actual data
         const schema = inferSchema(data);
         
-        // Get preview data (first 5 rows)
-        const preview = data.slice(0, 5);
+        // Get preview data (first 10 rows, but limit data processing for very large files)
+        const preview = data.slice(0, 10);
 
         return {
           success: true,
@@ -95,17 +96,18 @@ export const dataRouter = createTRPCRouter({
           const data = parseResult.data as Record<string, any>[];
           
           if (data.length > 0) {
+            const schema = inferSchema(data);
+            
             return {
               success: true,
               data,
-              schema: inferSchema(data),
+              schema: schema,
               source: "csv_file",
               filename,
             };
           }
         } catch (fileError) {
           // CSV file doesn't exist or can't be read, fall back to hardcoded data
-          console.log(`CSV file ${filename} not found, using hardcoded sample data`);
         }
         
         // Fallback to hardcoded data
@@ -113,10 +115,12 @@ export const dataRouter = createTRPCRouter({
           ? SAMPLE_GERMANY_DATA 
           : SAMPLE_TREATMENT_COSTS_DATA;
         
+        const schema = inferSchema(data);
+        
         return {
           success: true,
           data,
-          schema: inferSchema(data),
+          schema: schema,
           source: "hardcoded",
         };
       } catch (error) {

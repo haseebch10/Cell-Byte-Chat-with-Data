@@ -120,7 +120,9 @@ export const SAMPLE_TREATMENT_COSTS_DATA = [
 ];
 
 export function inferSchema(data: any[]) {
-  if (!data.length) return [];
+  if (!data.length) {
+    return [];
+  }
   
   const firstRow = data[0];
   const schema = Object.keys(firstRow).map(key => {

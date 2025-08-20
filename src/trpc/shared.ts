@@ -6,9 +6,14 @@ import { type AppRouter } from "@/server/api/root";
 export const transformer = superjson;
 
 function getBaseUrl() {
-  if (typeof window !== "undefined") return ""; // browser should use relative url
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`; // SSR should use vercel url
-  return `http://localhost:${process.env.PORT ?? 3000}`; // dev SSR should use localhost
+  // Browser: always use relative URLs
+  if (typeof window !== "undefined") return "";
+  
+  // Server-side rendering
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  
+  // Development server
+  return `http://localhost:${process.env.PORT ?? 3000}`;
 }
 
 export function getUrl() {
