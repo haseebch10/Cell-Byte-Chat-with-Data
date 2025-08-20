@@ -147,8 +147,13 @@ export function QueryInterface() {
       const data = result.json || result;
       
       if (data.success) {
-        // Show generated SQL query
+        // Show generated SQL query and explanations
         let content = `Here are the results for your query:\n\n**Generated SQL:** \`${data.sql || "No SQL generated"}\`\n\n`;
+        
+        // Add explanations if available
+        if (data.explanations) {
+          content += `**Analysis Explanation:**\n${data.explanations}\n\n`;
+        }
         
         if (data.result && data.result.length > 0) {
           if (data.displayType === "number") {
@@ -167,6 +172,7 @@ export function QueryInterface() {
             data: data.result,
             displayType: data.displayType || "chart",
             sql: data.sql,
+            explanations: data.explanations,
           });
         } else {
           // No results but query was successful

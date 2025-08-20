@@ -360,14 +360,34 @@ export const dataRouter = createTRPCRouter({
           };
         }
 
-        // Get dataset schema for OpenAI
+        // Get dataset schema for OpenAI with detailed type detection explanations
         const firstRow = dataset[0];
-        const schema = Object.keys(firstRow).map(col => ({
-          name: col,
-          type: typeof firstRow[col] === 'number' ? 'number' : 
-                typeof firstRow[col] === 'string' && /^\d{4}-\d{2}-\d{2}/.test(firstRow[col]) ? 'date' : 'string',
-          sample: String(firstRow[col] || '').substring(0, 50)
-        }));
+        const schema = Object.keys(firstRow).map(col => {
+          const value = firstRow[col];
+          let type: string;
+          let explanation: string;
+          
+          if (typeof value === 'number') {
+            type = 'number';
+            explanation = `Detected as numeric (value: ${value})`;
+          } else if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+            type = 'date';
+            explanation = `Detected as date (pattern: YYYY-MM-DD, value: "${value}")`;
+          } else if (typeof value === 'string' && /^\d+\.?\d*$/.test(value)) {
+            type = 'number';
+            explanation = `Detected as numeric string, will be parsed as number (value: "${value}")`;
+          } else {
+            type = 'string';
+            explanation = `Detected as text/categorical (value: "${String(value).substring(0, 30)}${String(value).length > 30 ? '...' : ''}")`;
+          }
+          
+          return {
+            name: col,
+            type,
+            sample: String(value || '').substring(0, 50),
+            explanation
+          };
+        });
 
         // Use OpenAI to analyze query
         const queryAnalysis = await naturalLanguageToSQL(input.query, schema);
@@ -399,6 +419,39 @@ export const dataRouter = createTRPCRouter({
           displayType = "chart";
         }
 
+        // Generate detailed explanations for the analysis
+        const explanations = [];
+        
+        // Explain data type detections
+        const typeExplanations = schema.filter(col => col.explanation).map(col => col.explanation);
+        if (typeExplanations.length > 0) {
+          explanations.push(`**Column Type Detection:**\n${typeExplanations.map(exp => `• ${exp}`).join('\n')}`);
+        }
+        
+        // Explain query processing
+        if (queryAnalysis.aggregationType && queryAnalysis.aggregateField) {
+          explanations.push(`**Aggregation Choice:** Used ${queryAnalysis.aggregationType.toUpperCase()} on "${queryAnalysis.aggregateField}" because your query requested ${queryAnalysis.aggregationType === 'sum' ? 'total values' : queryAnalysis.aggregationType === 'avg' ? 'average values' : 'counting records'}`);
+        }
+        
+        if (queryAnalysis.groupByField) {
+          explanations.push(`**Grouping Logic:** Grouped results by "${queryAnalysis.groupByField}" to show breakdown across different ${queryAnalysis.groupByField.replace(/_/g, ' ')} values`);
+        }
+        
+        // Explain chart type selection
+        const chartExplanation = queryAnalysis.chartType === 'pie' ? 'pie chart for distribution/percentage view' :
+                                queryAnalysis.chartType === 'line' ? 'line chart for trend/time-series data' :
+                                'bar chart for comparison of values across categories';
+        explanations.push(`**Visualization Choice:** Selected ${chartExplanation} based on query intent and data structure`);
+        
+        // Explain display type logic
+        if (displayType === 'number') {
+          explanations.push(`**Display Format:** Showing single number result because query returned one aggregated value`);
+        } else if (displayType === 'table') {
+          explanations.push(`**Display Format:** Using table view because query appears to be filtering/listing records (${result.length} rows returned)`);
+        } else {
+          explanations.push(`**Display Format:** Using chart visualization because query shows grouped/comparative data (${result.length} categories)`);
+        }
+
         return {
           success: true,
           interpretation: {
@@ -411,6 +464,7 @@ export const dataRouter = createTRPCRouter({
           sql: queryAnalysis.sql,
           result: result.slice(0, 20), // Limit results for performance
           displayType,
+          explanations: explanations.join('\n\n'), // Add explanations to response
         };
 
       } catch (error) {

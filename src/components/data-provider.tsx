@@ -54,6 +54,7 @@ type AnalysisResult = {
   data: any[];
   sql: string;
   displayType: "number" | "chart" | "table";
+  explanations?: string; // Add explanations field
   interpretation: {
     aggregation: string;
     groupBy: string[];
@@ -92,6 +93,7 @@ type DataContextType = {
     };
     displayType?: "number" | "chart" | "table";
     sql?: string;
+    explanations?: string;
   }>;
   addMessage: (message: {
     type: "user" | "assistant";
@@ -104,6 +106,7 @@ type DataContextType = {
     };
     displayType?: "number" | "chart" | "table";
     sql?: string;
+    explanations?: string;
   }) => void;
   clearHistory: () => void;
 };
@@ -133,6 +136,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         data: message.data,
         sql: message.sql || "",
         displayType: message.displayType,
+        explanations: message.explanations,
         interpretation: {
           aggregation: "count",
           groupBy: [],
