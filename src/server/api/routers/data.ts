@@ -18,6 +18,7 @@ export const dataRouter = createTRPCRouter({
         const parseResult = Papa.parse(input.csvData, {
           header: true,
           skipEmptyLines: true,
+          delimiter: "", // Auto-detect delimiter (handles both comma and semicolon)
           transformHeader: (header) => header.trim(), // Clean headers
         });
 
@@ -83,6 +84,7 @@ export const dataRouter = createTRPCRouter({
           const parseResult = Papa.parse(csvContent, {
             header: true,
             skipEmptyLines: true,
+            delimiter: "", // Auto-detect delimiter (handles both comma and semicolon)
             transformHeader: (header) => header.trim(),
           });
 
