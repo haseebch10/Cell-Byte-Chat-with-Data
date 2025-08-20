@@ -60,14 +60,14 @@ graph TB
     
     subgraph "Processing Layer"
         OpenAI[OpenAI GPT-3.5]
-        CSV[CSV Parser<br/>PapaParse]
-        SQL[SQL Executor<br/>JavaScript]
-        DS[Data Store<br/>In-Memory Map]
+        CSV["CSV Parser<br/>PapaParse"]
+        SQL["SQL Executor<br/>JavaScript"]
+        DS["Data Store<br/>In-Memory Map"]
     end
     
     subgraph "External APIs"
         OAPI[OpenAI API]
-        Files[File System<br/>Sample Data]
+        Files["File System<br/>Sample Data"]
     end
     
     UI --> QI
@@ -96,7 +96,7 @@ graph TB
     classDef external fill:#fff3e0
     
     class UI,QI,AP,DV,FC frontend
-    class tRPC,DR,DP app  
+    class tRPC,DR,DP app
     class OpenAI,CSV,SQL,DS processing
     class OAPI,Files external
 ```
@@ -276,54 +276,7 @@ src/
     └── shared.ts       # Shared types
 ```
 
----
 
-## 🔧 **Configuration**
-
-### **Environment Variables**
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENAI_API_KEY` | Optional | Enables advanced AI query processing |
-| `NEXTAUTH_SECRET` | Yes | Session encryption (auto-generated) |
-| `NEXTAUTH_URL` | Yes | Base URL for the application |
-| `NODE_ENV` | Yes | Environment (development/production) |
-
-### **OpenAI Configuration**
-```javascript
-// Configurable in src/server/api/routers/data.ts
-const openai = env.OPENAI_API_KEY ? new OpenAI({
-  apiKey: env.OPENAI_API_KEY,
-}) : null;
-```
-
-### **Data Storage**
-Currently uses in-memory storage for simplicity:
-```javascript
-// In src/server/api/routers/data.ts
-const datasetStore = new Map<string, any[]>();
-```
-
----
-
-## 🔍 **Sample Datasets**
-
-The application includes pharmaceutical sample data:
-
-### **Germany Treatment Costs Dataset**
-- **Rows**: 79 treatment records
-- **Columns**: 7 (dates, brands, substances, costs)
-- **Use Cases**: Cost analysis, drug comparisons, indication studies
-
-**Sample Queries:**
-```
-"What are the highest cost treatments?"
-"Show me costs by therapeutic area" 
-"Average price per brand name"
-"Treatments for lung cancer"
-```
-
----
 
 ## ⚡ **Performance & Scalability**
 
@@ -428,59 +381,7 @@ interface DatasetRelation {
 - **Themes**: Dark/light mode support
 - **Animations**: Smooth transitions and micro-interactions
 
-### **🔮 Future Enhancements**
 
-#### **4. Advanced Analytics**
-- **Statistical Functions**: Correlation, regression analysis
-- **Time Series**: Trend analysis, forecasting
-- **Custom Metrics**: User-defined calculations
-
-#### **5. Collaboration Features**
-- **Sharing**: URL-based query sharing
-- **Comments**: Annotate charts and findings
-- **Export**: PowerPoint integration, PDF reports
-
-#### **6. Performance & Scalability**
-```typescript
-// Planned: Database integration
-interface DataStorage {
-  database: 'postgresql' | 'sqlite' | 'clickhouse';
-  caching: 'redis' | 'memory';
-  indexing: string[];
-}
-```
-- **Database**: PostgreSQL for large datasets
-- **Caching**: Redis for query result caching
-- **Streaming**: Real-time data updates
-
-#### **7. Advanced AI Features**
-- **Claude Integration**: Alternative to OpenAI
-- **Custom Models**: Fine-tuned domain-specific models
-- **Explanations**: AI-generated insights and recommendations
-
-### **🛠️ Technical Debt & Improvements**
-
-#### **8. Architecture Enhancements**
-- **Microservices**: Separate data processing service
-- **Event-Driven**: Real-time updates with WebSockets
-- **API Versioning**: Backward compatibility
-
-#### **9. DevOps & Monitoring**
-- **Docker**: Containerized deployment
-- **CI/CD**: Automated testing and deployment
-- **Monitoring**: Error tracking, performance metrics
-- **Testing**: Unit tests, integration tests, E2E tests
-
----
-
-## 🤝 **Contributing**
-
-### **Development Workflow**
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ### **Code Standards**
 - Follow TypeScript strict mode
@@ -488,81 +389,6 @@ interface DataStorage {
 - Write descriptive commit messages
 - Add JSDoc comments for complex functions
 
----
-
-## 📝 **License & Credits**
-
-### **Built With**
-- **Next.js** - React framework for production
-- **tRPC** - End-to-end type safety
-- **OpenAI** - Natural language processing
-- **Recharts** - React charting library
-- **Tailwind CSS** - Utility-first CSS framework
-- **Radix UI** - Accessible component primitives
-
-### **Acknowledgments**
-- **CellByte Team** - For the inspiring challenge
-- **Open Source Community** - For the amazing tools and libraries
-- **Healthcare Data Scientists** - For domain expertise and feedback
-
----
-
-## 📞 **Support & Contact**
-
-For questions, issues, or contributions:
-
-- **Issues**: [GitHub Issues](https://github.com/your-repo/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-repo/discussions)
-- **Email**: your-email@example.com
-
----
-
-## 📈 **Analytics & Usage**
-
-### **Key Metrics**
-- **Response Time**: < 1 second for typical queries
-- **Accuracy**: 95%+ query understanding with OpenAI
-- **User Satisfaction**: Intuitive interface with minimal learning curve
-
-### **Supported Use Cases**
-- **Pharmaceutical Research**: Drug cost analysis, treatment comparisons
-- **Business Intelligence**: Sales data, customer analytics  
-- **Academic Research**: Dataset exploration, statistical analysis
-- **Data Science**: Rapid prototyping, hypothesis testing
-
----
-
-## 🔥 **Demo Walkthrough**
-
-### **Step-by-Step Usage**
-
-1. **🚀 Start the Application**
-   ```bash
-   npm run dev
-   # Navigate to http://localhost:3000
-   ```
-
-2. **📊 Load Sample Data**
-   - Click "Load Sample Data" for pharmaceutical dataset
-   - Or upload your own CSV file
-
-3. **💬 Ask Questions**
-   ```
-   Try these example queries:
-   • "What are the treatment costs by indication?"
-   • "Show me the most expensive drugs"
-   • "Compare costs between therapeutic areas"
-   • "Average price per brand name"
-   ```
-
-4. **📈 Explore Results**
-   - View auto-generated charts
-   - Switch between bar, line, pie charts  
-   - Apply interactive filters
-   - Export data and visualizations
-
-### **🎬 Live Demo**
-![Demo GIF](https://via.placeholder.com/800x400/6366f1/ffffff?text=CellByte+Demo+Walkthrough)
 
 ---
 
@@ -585,12 +411,6 @@ For questions, issues, or contributions:
 - [x] **Security**: Input validation, safe parsing, API key protection
 - [x] **Performance**: Efficient in-memory processing, client-side filtering
 
----
 
-**🌟 Transform your data into insights with the power of conversation!**
-
-> *"The future of data analysis is not learning SQL – it's having natural conversations with your data."*
-
----
 
 *Built with ❤️ for the CellByte coding challenge | Transforming healthcare data into actionable insights*
