@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { Plus, Folder, BarChart3, User, Settings, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useData } from "@/components/data-provider";
@@ -20,10 +21,12 @@ export function Sidebar() {
       <div className="p-4 border-b border-slate-200">
         <div className="flex items-center gap-2">
           {/* CellByte AI Logo */}
-          <img 
+          <Image 
             src="/cellbyte_ai_logo.jpeg" 
             alt="CellByte AI" 
-            className="w-8 h-8 rounded-lg object-contain"
+            width={32}
+            height={32}
+            className="rounded-lg object-contain"
           />
           <h1 className="text-xl font-semibold text-slate-900">CellByte</h1>
         </div>
