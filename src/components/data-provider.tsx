@@ -19,13 +19,13 @@ type DatasetInfo = {
 type AnalysisResult = {
   data: any[];
   sql: string;
-  displayType: "number" | "chart";
+  displayType: "number" | "chart" | "table";
   interpretation: {
     aggregation: string;
     groupBy: string[];
     filters: any[];
     chartType: "bar" | "line" | "pie";
-    displayType: "number" | "chart";
+    displayType: "number" | "chart" | "table";
   };
 };
 
@@ -49,7 +49,7 @@ type DataContextType = {
       xField: string;
       yField: string;
     };
-    displayType?: "number" | "chart";
+    displayType?: "number" | "chart" | "table";
     sql?: string;
   }>;
   addMessage: (message: {
@@ -61,7 +61,7 @@ type DataContextType = {
       xField: string;
       yField: string;
     };
-    displayType?: "number" | "chart";
+    displayType?: "number" | "chart" | "table";
     sql?: string;
   }) => void;
   clearHistory: () => void;

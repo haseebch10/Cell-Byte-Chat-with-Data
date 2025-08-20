@@ -435,10 +435,25 @@ export const dataRouter = createTRPCRouter({
         // Generate SQL representation
         const sql = queryAnalysis?.sql || generateFallbackSQL(groupByField, aggregateField, aggregateType);
 
-        // Determine display type based on result structure
-        const displayType = result.length === 1 && Object.keys(result[0]).length === 1 
-          ? "number" 
-          : "chart";
+        // Determine display type based on result structure and query intent
+        let displayType: "number" | "chart" | "table" = "chart";
+        
+        // Single value result = number display
+        if (result.length === 1 && Object.keys(result[0]).length === 1) {
+          displayType = "number";
+        }
+        // Filter/show/list queries = table display
+        else if (input.query.toLowerCase().includes("filter") || 
+                 input.query.toLowerCase().includes("show me") ||
+                 input.query.toLowerCase().includes("list") ||
+                 input.query.toLowerCase().includes("find") ||
+                 result.length > 10) {
+          displayType = "table";
+        }
+        // Multiple grouped results = chart display
+        else {
+          displayType = "chart";
+        }
 
         return {
           success: true,

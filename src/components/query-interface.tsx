@@ -110,6 +110,8 @@ export function QueryInterface() {
             const value = Object.values(data.result[0])[0];
             const label = Object.keys(data.result[0])[0];
             content += `**Result:** ${typeof value === 'number' ? value.toLocaleString() : value} ${label.replace(/_/g, ' ')}`;
+          } else if (data.displayType === "table") {
+            content += `**Results:** Found ${data.result.length} record${data.result.length !== 1 ? 's' : ''}. View the filtered data in the table on the right →`;
           } else {
             content += `**Results:** Found ${data.result.length} record${data.result.length !== 1 ? 's' : ''}. View the analysis in the panel on the right →`;
           }

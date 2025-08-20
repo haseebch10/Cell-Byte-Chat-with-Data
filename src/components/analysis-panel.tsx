@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Database, Table, BarChart3, Download, Copy, ArrowLeft, BarChart, LineChart, PieChart } from "lucide-react";
+import { Database, Table, BarChart3, Download, Copy, ArrowLeft, BarChart, LineChart, PieChart, TableProperties } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
@@ -18,6 +18,7 @@ export function AnalysisPanel() {
   } = useData();
   
   const [selectedChartType, setSelectedChartType] = useState<"bar" | "line" | "pie">("bar");
+  const [selectedViewType, setSelectedViewType] = useState<"chart" | "table">("chart");
 
   const exportResults = (data: any[], filename: string) => {
     downloadAsCSV(data, `${filename}-results.csv`);
@@ -41,6 +42,41 @@ export function AnalysisPanel() {
     );
   };
 
+  const renderTableDisplay = (data: any[]) => {
+    if (!data || data.length === 0) return null;
+
+    const columns = Object.keys(data[0]);
+
+    return (
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <div className="overflow-x-auto max-h-96">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 sticky top-0">
+              <tr>
+                {columns.map((col) => (
+                  <th key={col} className="text-left px-4 py-3 font-medium text-slate-700 border-b border-slate-200">
+                    {col.replace(/_/g, ' ').toUpperCase()}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {data.map((row, i) => (
+                <tr key={i} className="hover:bg-slate-50">
+                  {columns.map((col) => (
+                    <td key={col} className="px-4 py-3 text-slate-900">
+                      {typeof row[col] === 'number' ? row[col].toLocaleString() : String(row[col] || '-')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const renderChartDisplay = (data: any[]) => {
     if (!data || data.length === 0) return null;
     
@@ -52,42 +88,70 @@ export function AnalysisPanel() {
 
     return (
       <div>
-        {/* Chart Type Selector */}
+        {/* View Type Selector */}
         <div className="flex gap-2 mb-4">
           <Button
-            variant={selectedChartType === "bar" ? "default" : "outline"}
+            variant={selectedViewType === "chart" ? "default" : "outline"}
             size="sm"
-            onClick={() => setSelectedChartType("bar")}
+            onClick={() => setSelectedViewType("chart")}
             className="flex items-center gap-2"
           >
-            <BarChart className="w-4 h-4" />
-            Bar
+            <BarChart3 className="w-4 h-4" />
+            Chart
           </Button>
           <Button
-            variant={selectedChartType === "line" ? "default" : "outline"}
+            variant={selectedViewType === "table" ? "default" : "outline"}
             size="sm"
-            onClick={() => setSelectedChartType("line")}
+            onClick={() => setSelectedViewType("table")}
             className="flex items-center gap-2"
           >
-            <LineChart className="w-4 h-4" />
-            Line
-          </Button>
-          <Button
-            variant={selectedChartType === "pie" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedChartType("pie")}
-            className="flex items-center gap-2"
-          >
-            <PieChart className="w-4 h-4" />
-            Pie
+            <TableProperties className="w-4 h-4" />
+            Table
           </Button>
         </div>
 
-        {/* Chart Visualization */}
-        <DataVisualization
-          data={data}
-          chartConfig={chartConfig}
-        />
+        {selectedViewType === "chart" ? (
+          <div>
+            {/* Chart Type Selector */}
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={selectedChartType === "bar" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedChartType("bar")}
+                className="flex items-center gap-2"
+              >
+                <BarChart className="w-4 h-4" />
+                Bar
+              </Button>
+              <Button
+                variant={selectedChartType === "line" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedChartType("line")}
+                className="flex items-center gap-2"
+              >
+                <LineChart className="w-4 h-4" />
+                Line
+              </Button>
+              <Button
+                variant={selectedChartType === "pie" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedChartType("pie")}
+                className="flex items-center gap-2"
+              >
+                <PieChart className="w-4 h-4" />
+                Pie
+              </Button>
+            </div>
+
+            {/* Chart Visualization */}
+            <DataVisualization
+              data={data}
+              chartConfig={chartConfig}
+            />
+          </div>
+        ) : (
+          renderTableDisplay(data)
+        )}
       </div>
     );
   };
@@ -145,12 +209,14 @@ export function AnalysisPanel() {
           
           {currentAnalysis.displayType === "number" ? 
             renderNumberDisplay(currentAnalysis.data) : 
+            currentAnalysis.displayType === "table" ?
+            renderTableDisplay(currentAnalysis.data) :
             renderChartDisplay(currentAnalysis.data)
           }
         </div>
 
-        {/* Data Table for Chart Results */}
-        {currentAnalysis.displayType === "chart" && currentAnalysis.data.length > 0 && (
+        {/* Raw Data Table for Chart Results Only */}
+        {currentAnalysis.displayType === "chart" && selectedViewType === "chart" && currentAnalysis.data.length > 0 && (
           <div className="border-t border-slate-200 pt-6">
             <h3 className="font-semibold text-slate-900 mb-3">Raw Data</h3>
             <div className="border border-slate-200 rounded-lg overflow-hidden">
