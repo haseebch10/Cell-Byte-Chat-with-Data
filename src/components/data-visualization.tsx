@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { BarChart3, LineChart, PieChart, Settings } from "lucide-react";
 import {
   BarChart,
   Bar,
