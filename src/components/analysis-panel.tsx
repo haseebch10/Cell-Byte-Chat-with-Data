@@ -1,22 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { Filter, Calendar, ChevronDown, Download } from "lucide-react";
+import { Database, Table, BarChart3, Download, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
 import { DataVisualization } from "@/components/data-visualization";
 import { downloadAsCSV } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export function AnalysisPanel() {
   const { currentDataset, chatHistory } = useData();
-  const [selectedFilters, setSelectedFilters] = useState({
-    brandName: "",
-    activeSubstance: "",
-    indication: "",
-    documentType: ""
-  });
+  const [activeTab, setActiveTab] = useState<"explore" | "examine">("explore");
 
   // Get the latest assistant message with data
   const latestDataMessage = chatHistory
@@ -27,162 +22,136 @@ export function AnalysisPanel() {
     downloadAsCSV(messageData, `${filename}-results.csv`);
   };
 
+  const copyTable = () => {
+    // Copy functionality can be implemented here
+    console.log("Copy table functionality");
+  };
+
   if (!currentDataset) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <Filter className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-500">Load a dataset to start analysis</p>
+      <div className="h-full flex flex-col">
+        <div className="border-b border-slate-200 mb-6">
+          <div className="flex space-x-8">
+            <button className="pb-3 border-b-2 border-transparent text-slate-500">
+              Explore
+            </button>
+            <button className="pb-3 border-b-2 border-transparent text-slate-400">
+              Examine
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500">Load a dataset to start analysis</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  return (
+    return (
     <div className="h-full flex flex-col space-y-6">
-      {/* Filter Documents Section */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Filter className="w-5 h-5" />
-            Filter Documents
-          </CardTitle>
-          <p className="text-sm text-slate-600">
-            Refine your document search by selecting values from filters below
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Select Filter */}
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-2 block">
-              Select Filter
-            </label>
-            <div className="grid grid-cols-1 gap-3">
-              <div>
-                <label className="text-xs text-slate-600">Brand name</label>
-                <div className="relative">
-                  <select className="w-full p-2 border border-slate-300 rounded-md text-sm appearance-none bg-white">
-                    <option>Kisplyx</option>
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-              
-              <div>
-                <label className="text-xs text-slate-600">Active substance</label>
-                <div className="relative">
-                  <select className="w-full p-2 border border-slate-300 rounded-md text-sm appearance-none bg-white">
-                    <option>Select substances</option>
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-600">Indication</label>
-                <div className="relative">
-                  <select className="w-full p-2 border border-slate-300 rounded-md text-sm appearance-none bg-white">
-                    <option>Select a indication</option>
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-            </div>
+      {/* Dataset Overview Stats */}
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900 mb-4">Dataset Overview</h2>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="text-center p-4 bg-slate-50 rounded-lg border">
+            <div className="text-2xl font-bold text-slate-900">{currentDataset.rowCount.toLocaleString()}</div>
+            <div className="text-sm text-slate-600">Rows</div>
           </div>
+          <div className="text-center p-4 bg-slate-50 rounded-lg border">
+            <div className="text-2xl font-bold text-slate-900">{currentDataset.schema.length}</div>
+            <div className="text-sm text-slate-600">Columns</div>
+          </div>
+        </div>
+      </div>
 
-          {/* G-BA indication and Therapeutic area */}
-          <div className="grid grid-cols-1 gap-3">
-            <div>
-              <label className="text-xs text-slate-600">G-BA indication</label>
-              <div className="relative">
-                <select className="w-full p-2 border border-slate-300 rounded-md text-sm appearance-none bg-white">
-                  <option>Select substances</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+      {/* Schema */}
+      <div>
+        <h3 className="font-semibold text-slate-900 mb-3">Schema</h3>
+        <div className="space-y-2 max-h-48 overflow-y-auto">
+          {currentDataset.schema.map((col) => (
+            <div key={col.name} className="flex items-center justify-between p-2 bg-slate-50 rounded border">
+              <div className="flex-1">
+                <div className="font-medium text-sm text-slate-900">{col.name}</div>
+                <div className="text-xs text-slate-500">{col.sample}</div>
+              </div>
+              <div className="text-xs px-2 py-1 bg-slate-200 text-slate-700 rounded">
+                {col.type}
               </div>
             </div>
+          ))}
+        </div>
+      </div>
 
-            <div>
-              <label className="text-xs text-slate-600">Therapeutic area</label>
-              <div className="relative">
-                <select className="w-full p-2 border border-slate-300 rounded-md text-sm appearance-none bg-white">
-                  <option>Select a indication</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-600">Document type</label>
-              <div className="relative">
-                <select className="w-full p-2 border border-slate-300 rounded-md text-sm appearance-none bg-white">
-                  <option>Tragende Gründe (G-BA)</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-
-          {/* Keyword search */}
-          <div>
-            <label className="text-xs text-slate-600 mb-1 block">Keyword search</label>
-            <Input
-              placeholder="Search document by keyword"
-              className="text-sm"
-            />
-          </div>
-
-          {/* G-BA resolution date */}
-          <div>
-            <label className="text-xs text-slate-600 mb-1 block">G-BA resolution date</label>
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Start date"
-                className="text-sm"
-              />
-              <span className="text-slate-400">→</span>
-              <Input
-                placeholder="End date"
-                className="text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Search Button */}
-          <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-            <Filter className="w-4 h-4 mr-2" />
-            Search
+      {/* Data Preview - First 5 Rows */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-slate-900">Data Preview</h3>
+          <Button variant="outline" size="sm" onClick={() => exportResults(currentDataset.preview, "preview")}>
+            <Download className="w-3 h-3 mr-1" />
+            Export CSV
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+        
+        <div className="text-sm text-slate-600 mb-3">
+          First {Math.min(5, currentDataset.preview.length)} rows:
+        </div>
 
-      {/* Documents Found Section */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  {currentDataset.schema.map((col) => (
+                    <th key={col.name} className="text-left px-3 py-2 font-medium text-slate-700 border-b border-slate-200">
+                      {col.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {currentDataset.preview.slice(0, 5).map((row, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    {currentDataset.schema.map((col) => (
+                      <td key={col.name} className="px-3 py-2 text-slate-900 max-w-[120px] truncate">
+                        {String(row[col.name] || '-')}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Query Results (when available) */}
       {latestDataMessage && (
-        <Card className="flex-1">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">
-                Documents found: {latestDataMessage.data?.length || 0}
-              </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportResults(latestDataMessage.data!, `analysis-${Date.now()}`)}
-              >
-                <Download className="w-3 w-3 mr-1" />
-                Export
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {latestDataMessage.data && latestDataMessage.chartConfig && (
-              <DataVisualization
-                data={latestDataMessage.data}
-                chartConfig={latestDataMessage.chartConfig}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <div className="border-t border-slate-200 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-slate-900">
+              Latest Query Results ({latestDataMessage.data?.length || 0} records)
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportResults(latestDataMessage.data!, `query-${Date.now()}`)}
+            >
+              <Download className="w-3 h-3 mr-1" />
+              Export CSV
+            </Button>
+          </div>
+
+          {latestDataMessage.data && latestDataMessage.chartConfig && (
+            <DataVisualization
+              data={latestDataMessage.data}
+              chartConfig={latestDataMessage.chartConfig}
+            />
+          )}
+        </div>
       )}
     </div>
   );

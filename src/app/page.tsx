@@ -11,15 +11,17 @@ export default function HomePage() {
         <Sidebar />
         
         {/* Main Content */}
-        <div className="flex-1 flex">
-          {/* Query Interface */}
-          <div className="flex-1 p-6">
-            <QueryInterface />
-          </div>
-          
-          {/* Analysis Panel */}
-          <div className="w-96 p-6 bg-white border-l border-slate-200">
-            <AnalysisPanel />
+        <div className="flex-1 p-6">
+          <div className="h-full grid grid-cols-2 gap-6">
+            {/* Insights Card */}
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <QueryInterface />
+            </div>
+            
+            {/* Results Card */}
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <AnalysisPanel />
+            </div>
           </div>
         </div>
       </div>

@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { Send, Upload, Database, FileText } from "lucide-react";
+import { Send, Upload, Database, FileText, User, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
+import { DataVisualization } from "@/components/data-visualization";
 import { cn } from "@/lib/utils";
 
 // tRPC client (direct HTTP calls)
@@ -63,7 +64,7 @@ const tRPCClient = {
 };
 
 export function QueryInterface() {
-  const { currentDataset, setCurrentDataset, addMessage, isLoading, setIsLoading } = useData();
+  const { currentDataset, setCurrentDataset, addMessage, isLoading, setIsLoading, chatHistory } = useData();
   const [inputValue, setInputValue] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -122,7 +123,7 @@ export function QueryInterface() {
 
       if (result.success) {
         setCurrentDataset({
-          id: Math.random().toString(36).substr(2, 9),
+          id: result.datasetId || Math.random().toString(36).substr(2, 9),
           name: result.filename || file.name,
           schema: result.schema || [],
           rowCount: result.rowCount || 0,
@@ -167,10 +168,10 @@ export function QueryInterface() {
               <Database className="w-8 h-8 text-purple-600" />
             </div>
             <h2 className="text-2xl font-semibold text-slate-900 mb-2">
-              Select documents to chat with
+              Load Your Dataset
             </h2>
             <p className="text-slate-600">
-              Upload a CSV file or load sample data to start asking questions.
+              Upload a CSV file or load sample data to start analyzing your data with natural language queries.
             </p>
           </div>
 
@@ -255,43 +256,93 @@ export function QueryInterface() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Dataset Header */}
+      {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 p-4 bg-white rounded-lg border border-slate-200">
-          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-            <FileText className="w-5 h-5 text-purple-600" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-slate-900">{currentDataset.name}</h3>
-            <p className="text-sm text-slate-600">
+        <h1 className="text-xl font-semibold text-slate-900 mb-2">Query Your Data</h1>
+        <p className="text-sm text-slate-600">
+          Ask questions about your dataset using natural language
+        </p>
+        {currentDataset && (
+          <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+            <p className="text-sm font-medium text-purple-900">Active Dataset:</p>
+            <p className="text-sm text-purple-800">{currentDataset.name}</p>
+            <p className="text-xs text-purple-600">
               {currentDataset.rowCount.toLocaleString()} rows • {currentDataset.schema.length} columns
             </p>
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* Chat Messages */}
+      <div className="flex-1 overflow-y-auto space-y-4 mb-6">
+        {chatHistory.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-center py-8">
+            <BarChart3 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500 mb-2">Start by asking a question</p>
+            <p className="text-sm text-slate-400">
+              Try: &quot;What are the costs by indication?&quot; or &quot;Show me treatment types&quot;
+            </p>
+          </div>
+        )}
+
+        {chatHistory.map((message, index) => (
+          <div key={message.id || index} className="space-y-3">
+            {message.type === "user" ? (
+              <div className="text-right">
+                <div className="inline-block bg-purple-600 text-white rounded-lg px-4 py-2 max-w-lg">
+                  <p className="text-sm">{message.content}</p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="bg-slate-100 rounded-lg p-4 mb-3">
+                  <div className="text-sm text-slate-800 whitespace-pre-wrap">
+                    {message.content}
+                  </div>
+                </div>
+                {message.data && message.chartConfig && (
+                  <div className="bg-white border border-slate-200 rounded-lg p-4">
+                    <DataVisualization
+                      data={message.data}
+                      chartConfig={message.chartConfig}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="bg-slate-100 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+              <span className="text-sm text-slate-600">Analyzing your data...</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Query Input */}
-      <div className="flex-1 flex flex-col">
-        <form onSubmit={handleSubmit} className="mt-auto">
-          <div className="relative">
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask questions to extract insights from your data..."
-              disabled={isLoading}
-              className="pr-12 py-3 text-base border-slate-300 focus:border-purple-500 focus:ring-purple-500"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={isLoading || !inputValue.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-600 hover:bg-purple-700"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-        </form>
-      </div>
+      <form onSubmit={handleSubmit} className="border-t border-slate-200 pt-4">
+        <div className="relative">
+          <Input
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Ask questions about your data..."
+            disabled={isLoading || !currentDataset}
+            className="pr-12 py-3 text-base border-slate-300 focus:border-purple-500 focus:ring-purple-500"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={isLoading || !inputValue.trim() || !currentDataset}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-600 hover:bg-purple-700"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

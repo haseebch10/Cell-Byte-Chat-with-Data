@@ -5,6 +5,9 @@ import Papa from "papaparse";
 import fs from "fs/promises";
 import path from "path";
 
+// Simple in-memory store for datasets (in production, use Redis/Database)
+const datasetStore = new Map<string, any[]>();
+
 export const dataRouter = createTRPCRouter({
   // Upload and process CSV data
   processCSV: publicProcedure
@@ -47,12 +50,17 @@ export const dataRouter = createTRPCRouter({
         // Get preview data (first 10 rows, but limit data processing for very large files)
         const preview = data.slice(0, 10);
 
+        // Generate a unique dataset ID and store the full dataset
+        const datasetId = Math.random().toString(36).substr(2, 9);
+        datasetStore.set(datasetId, data);
+
         return {
           success: true,
           schema,
           rowCount: data.length,
           preview,
           filename: input.filename,
+          datasetId, // Return the ID so frontend can use it for queries
         };
       } catch (error) {
         console.error("Error processing CSV:", error);
@@ -98,6 +106,9 @@ export const dataRouter = createTRPCRouter({
           if (data.length > 0) {
             const schema = inferSchema(data);
             
+            // Store sample data with a known ID
+            datasetStore.set("sample-germany", data);
+            
             return {
               success: true,
               data,
@@ -116,6 +127,9 @@ export const dataRouter = createTRPCRouter({
           : SAMPLE_TREATMENT_COSTS_DATA;
         
         const schema = inferSchema(data);
+        
+        // Store hardcoded sample data with a known ID
+        datasetStore.set("sample-germany", data);
         
         return {
           success: true,
@@ -140,71 +154,159 @@ export const dataRouter = createTRPCRouter({
       datasetId: z.string(),
     }))
     .mutation(async ({ input }) => {
-      // Simple rule-based query processing (in production, use LLM)
-      const query = input.query.toLowerCase();
-      
-      // Determine chart type and aggregation based on query
-      let chartType: "bar" | "line" | "pie" = "bar";
-      if (query.includes("trend") || query.includes("over time")) {
-        chartType = "line";
-      } else if (query.includes("distribution") || query.includes("breakdown")) {
-        chartType = "pie";
-      }
+      try {
+        // Get the actual dataset from our store
+        const dataset = datasetStore.get(input.datasetId);
+        if (!dataset || dataset.length === 0) {
+          return {
+            success: false,
+            error: "Dataset not found or empty",
+          };
+        }
 
-      // Sample aggregated results based on the sample data
-      if (query.includes("indication") || query.includes("disease")) {
+        const query = input.query.toLowerCase();
+        
+        // Determine chart type based on query
+        let chartType: "bar" | "line" | "pie" = "bar";
+        if (query.includes("trend") || query.includes("over time") || query.includes("time")) {
+          chartType = "line";
+        } else if (query.includes("distribution") || query.includes("breakdown") || query.includes("pie")) {
+          chartType = "pie";
+        }
+
+        // Get dataset columns to work with
+        const firstRow = dataset[0];
+        const columns = Object.keys(firstRow);
+        
+        // Basic query parsing - find relevant columns
+        let groupByField = "";
+        let aggregateField = "";
+        let aggregateType = "count";
+
+        // Look for cost/value fields
+        const costFields = columns.filter(col => 
+          col.toLowerCase().includes("cost") || 
+          col.toLowerCase().includes("price") || 
+          col.toLowerCase().includes("value") ||
+          col.toLowerCase().includes("amount")
+        );
+
+        // Look for categorical fields based on query
+        const categoryFields = columns.filter(col => 
+          col.toLowerCase().includes("indication") || 
+          col.toLowerCase().includes("treatment") || 
+          col.toLowerCase().includes("type") || 
+          col.toLowerCase().includes("category") ||
+          col.toLowerCase().includes("brand") ||
+          col.toLowerCase().includes("substance")
+        );
+
+        // Match query to fields
+        if (query.includes("indication") && columns.some(col => col.toLowerCase().includes("indication"))) {
+          groupByField = columns.find(col => col.toLowerCase().includes("indication")) || "";
+        } else if (query.includes("treatment") && columns.some(col => col.toLowerCase().includes("treatment"))) {
+          groupByField = columns.find(col => col.toLowerCase().includes("treatment")) || "";
+        } else if (query.includes("type") && columns.some(col => col.toLowerCase().includes("type"))) {
+          groupByField = columns.find(col => col.toLowerCase().includes("type")) || "";
+        } else if (categoryFields.length > 0) {
+          groupByField = categoryFields[0];
+        }
+
+        // Determine aggregation
+        if (query.includes("cost") || query.includes("sum") || query.includes("total")) {
+          aggregateType = "sum";
+          aggregateField = costFields[0] || "";
+        } else if (query.includes("average") || query.includes("avg")) {
+          aggregateType = "avg";
+          aggregateField = costFields[0] || "";
+        } else if (query.includes("count") || query.includes("number")) {
+          aggregateType = "count";
+        }
+
+        // Perform aggregation
+        const result: any[] = [];
+        const groups = new Map<string, { sum: number; count: number; items: any[] }>();
+
+        // Group data
+        dataset.forEach(row => {
+          const groupValue = groupByField ? String(row[groupByField] || "Unknown") : "All";
+          
+          if (!groups.has(groupValue)) {
+            groups.set(groupValue, { sum: 0, count: 0, items: [] });
+          }
+          
+          const group = groups.get(groupValue)!;
+          group.count += 1;
+          group.items.push(row);
+          
+          if (aggregateField && row[aggregateField]) {
+            const value = parseFloat(row[aggregateField]) || 0;
+            group.sum += value;
+          }
+        });
+
+        // Generate results
+        groups.forEach((group, key) => {
+          const resultRow: any = {};
+          
+          if (groupByField) {
+            resultRow[groupByField] = key;
+          }
+          
+          if (aggregateType === "sum" && aggregateField) {
+            resultRow[`total_${aggregateField.toLowerCase()}`] = group.sum;
+          } else if (aggregateType === "avg" && aggregateField) {
+            resultRow[`avg_${aggregateField.toLowerCase()}`] = group.count > 0 ? group.sum / group.count : 0;
+          } else {
+            resultRow["count"] = group.count;
+          }
+          
+          result.push(resultRow);
+        });
+
+        // Sort results by value (descending)
+        if (result.length > 0) {
+          const valueKey = Object.keys(result[0]).find(key => key !== groupByField);
+          if (valueKey) {
+            result.sort((a, b) => (b[valueKey] || 0) - (a[valueKey] || 0));
+          }
+        }
+
+        // Generate SQL representation
+        const sqlParts = ["SELECT"];
+        if (groupByField) {
+          sqlParts.push(groupByField);
+        }
+        if (aggregateType === "sum" && aggregateField) {
+          sqlParts.push(`${groupByField ? ", " : ""}SUM(${aggregateField}) as total_${aggregateField.toLowerCase()}`);
+        } else if (aggregateType === "avg" && aggregateField) {
+          sqlParts.push(`${groupByField ? ", " : ""}AVG(${aggregateField}) as avg_${aggregateField.toLowerCase()}`);
+        } else {
+          sqlParts.push(`${groupByField ? ", " : ""}COUNT(*) as count`);
+        }
+        sqlParts.push("FROM dataset");
+        if (groupByField) {
+          sqlParts.push(`GROUP BY ${groupByField}`);
+        }
+
         return {
           success: true,
           interpretation: {
-            aggregation: "sum",
-            groupBy: ["indication"],
+            aggregation: aggregateType,
+            groupBy: groupByField ? [groupByField] : [],
             filters: [],
             chartType,
           },
-          sql: "SELECT indication, SUM(cost) as total_cost FROM dataset GROUP BY indication",
-          result: [
-            { indication: "Cancer", total_cost: 28000 },
-            { indication: "Diabetes", total_cost: 685 },
-            { indication: "Heart Disease", total_cost: 12300 },
-          ],
+          sql: sqlParts.join(" "),
+          result: result.slice(0, 20), // Limit to top 20 results
         };
-      } else if (query.includes("treatment")) {
+
+      } catch (error) {
+        console.error("Error processing query:", error);
         return {
-          success: true,
-          interpretation: {
-            aggregation: "sum",
-            groupBy: ["treatment"],
-            filters: [],
-            chartType,
-          },
-          sql: "SELECT treatment, SUM(cost) as total_cost FROM dataset GROUP BY treatment",
-          result: [
-            { treatment: "Chemotherapy", total_cost: 5000 },
-            { treatment: "Radiation", total_cost: 8000 },
-            { treatment: "Surgery", total_cost: 12000 },
-            { treatment: "Insulin", total_cost: 150 },
-            { treatment: "Metformin", total_cost: 85 },
-            { treatment: "Medication", total_cost: 300 },
-            { treatment: "Immunotherapy", total_cost: 15000 },
-            { treatment: "GLP-1", total_cost: 450 },
-          ],
-        };
-      } else {
-        // Default response
-        return {
-          success: true,
-          interpretation: {
-            aggregation: "sum",
-            groupBy: ["indication"],
-            filters: [],
-            chartType,
-          },
-          sql: "SELECT indication, SUM(cost) as total_cost FROM dataset GROUP BY indication",
-          result: [
-            { indication: "Cancer", total_cost: 28000 },
-            { indication: "Diabetes", total_cost: 685 },
-            { indication: "Heart Disease", total_cost: 12300 },
-          ],
+          success: false,
+          error: "Failed to process query",
+          details: error instanceof Error ? error.message : "Unknown error",
         };
       }
     }),
