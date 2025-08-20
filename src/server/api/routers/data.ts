@@ -133,8 +133,13 @@ function executeBasicSQL(dataset: any[], queryAnalysis: {
   aggregationType?: string;
   groupByField?: string;
   aggregateField?: string;
+  sql?: string; // Add SQL to extract LIMIT
 }): any[] {
-  const { aggregationType = "count", groupByField = "", aggregateField = "" } = queryAnalysis;
+  const { aggregationType = "count", groupByField = "", aggregateField = "", sql = "" } = queryAnalysis;
+
+  // Extract LIMIT from SQL query
+  const limitMatch = sql.match(/LIMIT\s+(\d+)/i);
+  const limit = limitMatch ? parseInt(limitMatch[1]) : null;
 
   // If no grouping, return simple aggregation
   if (!groupByField) {
@@ -198,7 +203,8 @@ function executeBasicSQL(dataset: any[], queryAnalysis: {
     }
   }
 
-  return result;
+  // Apply LIMIT if specified in SQL
+  return limit ? result.slice(0, limit) : result;
 }
 
 export const dataRouter = createTRPCRouter({
@@ -402,31 +408,35 @@ export const dataRouter = createTRPCRouter({
 
         // For now, we'll simulate SQL execution with basic JavaScript aggregation
         // In a real implementation, you might want to use a SQL engine like sqlite
-        const result = executeBasicSQL(dataset, queryAnalysis);
+        const result = executeBasicSQL(dataset, { ...queryAnalysis, sql: queryAnalysis.sql });
 
         // Determine display type based on result structure and query intent
         let displayType: "number" | "chart" | "table" = "chart";
         
         if (result.length === 1 && Object.keys(result[0]).length === 1) {
+          // Single aggregated value - show as number
           displayType = "number";
-        } else if (input.query.toLowerCase().includes("filter") || 
-                   input.query.toLowerCase().includes("show me") ||
-                   input.query.toLowerCase().includes("list") ||
-                   input.query.toLowerCase().includes("find") ||
-                   result.length > 10) {
+        } else if (input.query.toLowerCase().includes("filter") && 
+                   (input.query.toLowerCase().includes("show") || 
+                    input.query.toLowerCase().includes("list") || 
+                    input.query.toLowerCase().includes("give me all"))) {
+          // Explicit request for filtering/listing results - show as table
+          displayType = "table";
+        } else if (queryAnalysis.groupByField && queryAnalysis.aggregationType) {
+          // Grouped aggregation (top X, comparison, breakdown) - always show as chart
+          displayType = "chart";
+        } else if (result.length > 20) {
+          // Large result set without grouping - show as table
           displayType = "table";
         } else {
+          // Default to chart for analytical queries
           displayType = "chart";
         }
 
         // Generate detailed explanations for the analysis
         const explanations = [];
         
-        // Explain data type detections
-        const typeExplanations = schema.filter(col => col.explanation).map(col => col.explanation);
-        if (typeExplanations.length > 0) {
-          explanations.push(`**Column Type Detection:**\n${typeExplanations.map(exp => `• ${exp}`).join('\n')}`);
-        }
+        // Skip column type detection - too verbose and not user-friendly
         
         // Explain query processing
         if (queryAnalysis.aggregationType && queryAnalysis.aggregateField) {
