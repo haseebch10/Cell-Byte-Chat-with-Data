@@ -17,10 +17,8 @@ export function Sidebar() {
 
   return (
     <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
-      {/* CellByte Logo/Header */}
       <div className="p-4 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          {/* CellByte AI Logo */}
           <Image 
             src="/cellbyte_ai_logo.jpeg" 
             alt="CellByte AI" 
@@ -32,7 +30,6 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* New Query Button */}
       <div className="p-4">
         <Button 
           onClick={clearHistory}
@@ -43,9 +40,7 @@ export function Sidebar() {
         </Button>
       </div>
 
-      {/* Navigation */}
       <div className="flex-1 px-4">
-        {/* Folders Section */}
         <div className="mb-6">
           <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
             <Folder className="w-4 h-4" />
@@ -53,7 +48,6 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* Query History */}
         <div className="mb-6">
           <h3 className="text-sm font-medium text-slate-900 mb-3">Query history</h3>
           <div className="space-y-1">
@@ -75,7 +69,6 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* Analysis Section */}
         <div className="mb-6">
           <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
             <BarChart3 className="w-4 h-4" />
@@ -84,7 +77,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Bottom Section */}
+     
       <div className="p-4 border-t border-slate-200">
         <div className="space-y-2">
           <Button variant="ghost" size="sm" className="w-full justify-start text-sm">
@@ -97,7 +90,7 @@ export function Sidebar() {
           </Button>
         </div>
         
-        {/* User Section */}
+       
         <div className="mt-4 flex items-center gap-2 text-sm">
           <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
             <User className="w-3 h-3" />
