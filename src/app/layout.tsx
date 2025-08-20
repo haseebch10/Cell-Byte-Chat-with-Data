@@ -1,6 +1,7 @@
 import "@/styles/globals.css";
 import { Inter } from "next/font/google";
 import { type Metadata } from "next";
+import { TRPCReactProvider } from "@/trpc/react";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -14,7 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={`font-sans ${inter.variable} antialiased`}>
-        <div className="min-h-screen bg-background">{children}</div>
+        <TRPCReactProvider>
+          <div className="min-h-screen bg-background">{children}</div>
+        </TRPCReactProvider>
       </body>
     </html>
   );

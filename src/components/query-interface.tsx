@@ -9,10 +9,10 @@ import { useData } from "@/components/data-provider";
 import { DataVisualization } from "@/components/data-visualization";
 import { cn } from "@/lib/utils";
 
-// tRPC client (direct HTTP calls)
+
+// tRPC client for HTTP endpoints
 const tRPCClient = {
   async getSampleData(dataset: "germany_sample" | "treatment_costs") {
-    // Queries use GET with proper tRPC query string format
     const inputParam = JSON.stringify({
       "0": {
         "json": { dataset }
@@ -27,9 +27,7 @@ const tRPCClient = {
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     const data = await response.json();
     
-    // Try different response structures based on the actual tRPC response format
     if (data[0]?.result?.data?.json) {
-      // This is the correct structure for tRPC responses
       return data[0].result.data.json;
     } else if (data[0]?.result?.data) {
       return data[0].result.data;
@@ -50,16 +48,29 @@ const tRPCClient = {
     const data = await response.json();
     return data[0]?.result?.data?.json || data.result.data.json;
   },
-  
+
   async processQuery(query: string, datasetId: string) {
     const response = await fetch("/api/trpc/data.processQuery", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ "0": { "json": { query, datasetId } } }),
+      body: JSON.stringify({ "json": { query, datasetId } }),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
     const data = await response.json();
-    return data[0]?.result?.data?.json || data.result.data.json;
+    
+    // Handle response format
+    if (data?.result?.data) {
+      return data.result.data;
+    } else if (data?.success !== undefined) {
+      return data;
+    } else {
+      throw new Error("Unexpected response format from server");
+    }
   }
 };
 
@@ -68,6 +79,8 @@ export function QueryInterface() {
   const [inputValue, setInputValue] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,24 +93,56 @@ export function QueryInterface() {
     addMessage({ type: "user", content: userMessage });
 
     try {
+      if (!currentDataset.id) {
+        throw new Error("Dataset ID is missing. Please reload the dataset.");
+      }
+
       const result = await tRPCClient.processQuery(userMessage, currentDataset.id);
 
-      if (result.success) {
-        addMessage({
-          type: "assistant",
-          content: `Here are the results for your query:\n\n**SQL Query:** \`${result.sql}\`\n\n**Results:**`,
-          data: result.result,
-          chartConfig: {
-            type: result.interpretation.chartType as "bar" | "line" | "pie",
-            xField: Object.keys(result.result[0] || {})[0] || "x",
-            yField: Object.keys(result.result[0] || {})[1] || "y",
-          },
-        });
+      // Handle response structure
+      const data = result.json || result;
+      
+      if (data.success) {
+        // Show generated SQL query
+        let content = `Here are the results for your query:\n\n**Generated SQL:** \`${data.sql || "No SQL generated"}\`\n\n`;
+        
+        if (data.result && data.result.length > 0) {
+          content += "**Results:**";
+          
+          if (data.interpretation) {
+            addMessage({
+              type: "assistant",
+              content,
+              data: data.result,
+              chartConfig: {
+                type: data.interpretation.chartType as "bar" | "line" | "pie",
+                xField: Object.keys(data.result[0] || {})[0] || "x",
+                yField: Object.keys(data.result[0] || {})[1] || "y",
+              },
+            });
+          } else {
+            // No chart config but we have results
+            addMessage({
+              type: "assistant", 
+              content: content + "\n\n" + JSON.stringify(data.result, null, 2)
+            });
+          }
+        } else {
+          // No results but query was successful
+          content += "**No results found for your query.**";
+          addMessage({ type: "assistant", content });
+        }
       } else {
-        addMessage({ type: "assistant", content: `Query failed: ${(result as any).error || "Unknown error"}` });
+        // Query failed - show detailed error
+        const errorMsg = data.error || data.details || "Unknown error occurred";
+        const sqlInfo = data.sql ? `\n\n**Generated SQL:** \`${data.sql}\`` : "";
+        addMessage({ 
+          type: "assistant", 
+          content: `❌ Query failed: ${errorMsg}${sqlInfo}` 
+        });
       }
     } catch (err) {
-      addMessage({ type: "assistant", content: `Error: ${err}` });
+      addMessage({ type: "assistant", content: `Error: ${err instanceof Error ? err.message : "Unknown error"}` });
     } finally {
       setIsLoading(false);
     }
@@ -122,8 +167,11 @@ export function QueryInterface() {
       const result = await tRPCClient.processCSV(csvData, file.name);
 
       if (result.success) {
+        const datasetId = result.datasetId || Math.random().toString(36).substr(2, 9);
+        console.log("Setting dataset with ID:", datasetId);
+        
         setCurrentDataset({
-          id: result.datasetId || Math.random().toString(36).substr(2, 9),
+          id: datasetId,
           name: result.filename || file.name,
           schema: result.schema || [],
           rowCount: result.rowCount || 0,
@@ -216,7 +264,8 @@ export function QueryInterface() {
                 setIsLoading(true);
                 try {
                   const result = await tRPCClient.getSampleData("germany_sample");
-                  if (result.success) {
+                                if (result.success) {
+                    
                     setCurrentDataset({
                       id: "sample-germany",
                       name: "Germany Sample Dataset",
@@ -343,6 +392,8 @@ export function QueryInterface() {
           </Button>
         </div>
       </form>
+      
+
     </div>
   );
 }
