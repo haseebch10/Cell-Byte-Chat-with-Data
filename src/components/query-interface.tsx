@@ -279,7 +279,7 @@ export function QueryInterface() {
 
   if (!currentDataset) {
     return (
-      <div className="flex-1 flex flex-col justify-center px-4 py-4 min-h-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col justify-center px-4 py-4 min-h-0 overflow-y-auto relative">
         <div className="w-full max-w-lg mx-auto">
           <EmptyState
             icon={Database}
@@ -364,8 +364,25 @@ export function QueryInterface() {
             </Card>
           </div>
 
-          {isLoading && loadingType && (
+
+          
+          {error && (
             <div className="mt-4">
+              <ErrorState
+                type={error.type}
+                title={error.title}
+                message={error.message}
+                onRetry={error.retryAction}
+                retryLabel="Try Again"
+              />
+            </div>
+          )}
+        </div>
+        
+        {/* Loading Overlay */}
+        {isLoading && loadingType && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
+            <div className="bg-white rounded-lg border border-slate-200 shadow-xl p-6 max-w-sm mx-4">
               <ContextualLoading 
                 type={loadingType}
                 size="md"
@@ -386,20 +403,8 @@ export function QueryInterface() {
                 </div>
               )}
             </div>
-          )}
-          
-          {error && (
-            <div className="mt-4">
-              <ErrorState
-                type={error.type}
-                title={error.title}
-                message={error.message}
-                onRetry={error.retryAction}
-                retryLabel="Try Again"
-              />
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
