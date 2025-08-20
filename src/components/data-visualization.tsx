@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { BarChart3, LineChart, PieChart, Download, Settings } from "lucide-react";
+import { BarChart3, LineChart, PieChart, Settings } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -17,7 +17,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { Button } from "@/components/ui/button";
+
 import { cn } from "@/lib/utils";
 
 type ChartConfig = {
@@ -120,32 +120,15 @@ export function DataVisualization({ data, chartConfig }: Props) {
     }
   };
 
-  const downloadChart = async () => {
-    try {
-      const chartElement = document.querySelector('[data-chart="true"]');
-      if (!chartElement) return;
-      alert("Chart export functionality would be implemented here using html2canvas or similar library");
-    } catch (error) {
-      console.error("Failed to export chart:", error);
-    }
-  };
+
 
   return (
     <div className="space-y-4">
       {/* Chart */}
       <div 
-        className="bg-background border rounded-lg p-4 relative"
+        className="bg-background border rounded-lg p-4"
         data-chart="true"
       >
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={downloadChart}
-          className="absolute top-2 right-2 z-10"
-        >
-          <Download className="h-3 w-3 mr-1" />
-          Export PNG
-        </Button>
         {renderChart()}
       </div>
 

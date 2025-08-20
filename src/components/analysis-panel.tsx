@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
 import { DataVisualization } from "@/components/data-visualization";
 import { FilterControls } from "@/components/filter-controls";
-import { downloadAsCSV } from "@/lib/utils";
+import { downloadAsCSV, downloadAsPNG, generateExportFilename } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 export function AnalysisPanel() {
@@ -33,8 +33,33 @@ export function AnalysisPanel() {
     setFilteredData(newFilteredData);
   };
 
-  const exportResults = (data: any[], filename: string) => {
-    downloadAsCSV(data, `${filename}-results.csv`);
+  const exportCSV = () => {
+    if (!currentAnalysis) return;
+    
+    const dataToExport = filteredData.length > 0 ? filteredData : currentAnalysis.data;
+    const baseName = `${currentDataset?.name?.replace(/[^a-zA-Z0-9]/g, '-') || 'analysis'}-results`;
+    const filename = generateExportFilename(baseName, "csv");
+    
+    downloadAsCSV(dataToExport, filename);
+  };
+
+  const exportPNG = async () => {
+    if (!currentAnalysis || currentAnalysis.displayType === "table") return;
+    
+    const chartElement = document.querySelector('[data-chart-container="true"]') as HTMLElement;
+    if (!chartElement) {
+      alert("Visualization not found. Please make sure it is fully loaded.");
+      return;
+    }
+    
+    try {
+      const baseName = `${currentDataset?.name?.replace(/[^a-zA-Z0-9]/g, '-') || 'analysis'}-${currentAnalysis.displayType}`;
+      const filename = generateExportFilename(baseName, "png");
+      
+      await downloadAsPNG(chartElement, filename);
+    } catch (error) {
+      alert("Failed to export visualization. Please try again.");
+    }
   };
 
   const renderNumberDisplay = (data: any[]) => {
@@ -44,7 +69,7 @@ export function AnalysisPanel() {
     const label = Object.keys(data[0])[0];
     
     return (
-      <div className="text-center py-8">
+      <div className="text-center py-8" data-chart-container="true">
         <div className="text-5xl font-bold text-purple-600 mb-2">
           {typeof value === 'number' ? value.toLocaleString() : value}
         </div>
@@ -159,10 +184,12 @@ export function AnalysisPanel() {
             </div>
 
             {/* Chart Visualization */}
-            <DataVisualization
-              data={dataToUse}
-              chartConfig={chartConfig}
-            />
+            <div data-chart-container="true">
+              <DataVisualization
+                data={dataToUse}
+                chartConfig={chartConfig}
+              />
+            </div>
           </div>
         ) : (
           renderTableDisplay(dataToUse)
@@ -200,14 +227,6 @@ export function AnalysisPanel() {
               Back to Overview
             </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => exportResults(currentAnalysis.data, `analysis-${Date.now()}`)}
-          >
-            <Download className="w-3 h-3 mr-1" />
-            Export
-          </Button>
         </div>
 
         {/* SQL Query Display */}
@@ -226,7 +245,34 @@ export function AnalysisPanel() {
 
         {/* Results Display */}
         <div className="flex-1">
-          <h2 className="text-xl font-semibold text-slate-900 mb-4">Analysis Results</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-slate-900">Analysis Results</h2>
+            
+            {/* Export Buttons */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportCSV}
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export Data
+              </Button>
+              
+              {(currentAnalysis.displayType === "chart" && selectedViewType === "chart") || currentAnalysis.displayType === "number" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportPNG}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export {currentAnalysis.displayType === "number" ? "Image" : "Chart"}
+                </Button>
+              ) : null}
+            </div>
+          </div>
           
           {currentAnalysis.displayType === "number" ? 
             renderNumberDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) : 
@@ -314,9 +360,18 @@ export function AnalysisPanel() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-slate-900">Data Preview</h3>
-          <Button variant="outline" size="sm" onClick={() => exportResults(currentDataset.preview, "preview")}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              if (currentDataset?.preview) {
+                const filename = generateExportFilename(`${currentDataset.name?.replace(/[^a-zA-Z0-9]/g, '-') || 'dataset'}-preview`, "csv");
+                downloadAsCSV(currentDataset.preview, filename);
+              }
+            }}
+          >
             <Download className="w-3 h-3 mr-1" />
-            Export CSV
+            Export Preview
           </Button>
         </div>
         

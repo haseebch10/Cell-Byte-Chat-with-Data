@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import html2canvas from "html2canvas";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -44,4 +45,39 @@ export function downloadAsCSV(data: any[], filename: string) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+export async function downloadAsPNG(element: HTMLElement, filename: string): Promise<void> {
+  try {
+    const canvas = await html2canvas(element, {
+      backgroundColor: "#ffffff",
+      scale: 2, // Higher resolution
+      logging: false,
+      useCORS: true,
+      allowTaint: true,
+    });
+
+    // Convert canvas to blob
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  } catch (error) {
+    console.error("Failed to export PNG:", error);
+    throw new Error("Failed to export chart as PNG");
+  }
+}
+
+export function generateExportFilename(baseName: string, type: "csv" | "png", includeTimestamp: boolean = true): string {
+  const timestamp = includeTimestamp ? `-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, "-")}` : "";
+  return `${baseName}${timestamp}.${type}`;
 }
