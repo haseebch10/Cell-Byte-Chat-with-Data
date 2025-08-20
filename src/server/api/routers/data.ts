@@ -177,6 +177,7 @@ export const dataRouter = createTRPCRouter({
           schema,
           rowCount: data.length,
           preview,
+          fullData: data.length <= 5000 ? data : undefined, // Include full data for filtering if dataset is reasonable size
           filename: input.filename,
           datasetId, // Return the ID so frontend can use it for queries
         };
@@ -231,6 +232,7 @@ export const dataRouter = createTRPCRouter({
               success: true,
               data,
               schema: schema,
+              fullData: data.length <= 5000 ? data : undefined, // Include full data for filtering
               source: "csv_file",
               filename,
             };
@@ -253,6 +255,7 @@ export const dataRouter = createTRPCRouter({
           success: true,
           data,
           schema: schema,
+          fullData: data, // Hardcoded data is small, always include for filtering
           source: "hardcoded",
         };
       } catch (error) {

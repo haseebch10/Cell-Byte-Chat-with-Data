@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Database, Table, BarChart3, Download, Copy, ArrowLeft, BarChart, LineChart, PieChart, TableProperties } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
 import { DataVisualization } from "@/components/data-visualization";
+import { FilterControls } from "@/components/filter-controls";
 import { downloadAsCSV } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,18 @@ export function AnalysisPanel() {
   
   const [selectedChartType, setSelectedChartType] = useState<"bar" | "line" | "pie">("bar");
   const [selectedViewType, setSelectedViewType] = useState<"chart" | "table">("chart");
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+
+  // Initialize filtered data when analysis changes
+  useEffect(() => {
+    if (currentAnalysis?.data) {
+      setFilteredData(currentAnalysis.data);
+    }
+  }, [currentAnalysis]);
+
+  const handleFiltersChange = (newFilteredData: any[]) => {
+    setFilteredData(newFilteredData);
+  };
 
   const exportResults = (data: any[], filename: string) => {
     downloadAsCSV(data, `${filename}-results.csv`);
@@ -80,10 +93,12 @@ export function AnalysisPanel() {
   const renderChartDisplay = (data: any[]) => {
     if (!data || data.length === 0) return null;
     
+    const dataToUse = filteredData.length > 0 ? filteredData : data;
+    
     const chartConfig = {
       type: selectedChartType,
-      xField: Object.keys(data[0])[0] || "x",
-      yField: Object.keys(data[0])[1] || "y",
+      xField: Object.keys(dataToUse[0] || {})[0] || "x",
+      yField: Object.keys(dataToUse[0] || {})[1] || "y",
     };
 
     return (
@@ -145,12 +160,12 @@ export function AnalysisPanel() {
 
             {/* Chart Visualization */}
             <DataVisualization
-              data={data}
+              data={dataToUse}
               chartConfig={chartConfig}
             />
           </div>
         ) : (
-          renderTableDisplay(data)
+          renderTableDisplay(dataToUse)
         )}
       </div>
     );
@@ -203,14 +218,20 @@ export function AnalysisPanel() {
           </code>
         </div>
 
+        {/* Filter Controls */}
+        <FilterControls 
+          data={currentAnalysis.data} 
+          onFiltersChange={handleFiltersChange}
+        />
+
         {/* Results Display */}
         <div className="flex-1">
           <h2 className="text-xl font-semibold text-slate-900 mb-4">Analysis Results</h2>
           
           {currentAnalysis.displayType === "number" ? 
-            renderNumberDisplay(currentAnalysis.data) : 
+            renderNumberDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) : 
             currentAnalysis.displayType === "table" ?
-            renderTableDisplay(currentAnalysis.data) :
+            renderTableDisplay(filteredData.length > 0 ? filteredData : currentAnalysis.data) :
             renderChartDisplay(currentAnalysis.data)
           }
         </div>
@@ -218,13 +239,15 @@ export function AnalysisPanel() {
         {/* Raw Data Table for Chart Results Only */}
         {currentAnalysis.displayType === "chart" && selectedViewType === "chart" && currentAnalysis.data.length > 0 && (
           <div className="border-t border-slate-200 pt-6">
-            <h3 className="font-semibold text-slate-900 mb-3">Raw Data</h3>
+            <h3 className="font-semibold text-slate-900 mb-3">
+              Raw Data {filteredData.length !== currentAnalysis.data.length && `(${filteredData.length} of ${currentAnalysis.data.length} rows)`}
+            </h3>
             <div className="border border-slate-200 rounded-lg overflow-hidden">
               <div className="overflow-x-auto max-h-64">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr>
-                      {Object.keys(currentAnalysis.data[0] || {}).map((key) => (
+                      {Object.keys((filteredData.length > 0 ? filteredData[0] : currentAnalysis.data[0]) || {}).map((key) => (
                         <th key={key} className="text-left px-3 py-2 font-medium text-slate-700 border-b border-slate-200">
                           {key.replace(/_/g, ' ').toUpperCase()}
                         </th>
@@ -232,7 +255,7 @@ export function AnalysisPanel() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {currentAnalysis.data.slice(0, 10).map((row, i) => (
+                    {(filteredData.length > 0 ? filteredData : currentAnalysis.data).slice(0, 10).map((row, i) => (
                       <tr key={i} className="hover:bg-slate-50">
                         {Object.values(row).map((value, j) => (
                           <td key={j} className="px-3 py-2 text-slate-900">

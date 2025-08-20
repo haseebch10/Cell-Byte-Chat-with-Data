@@ -192,6 +192,7 @@ export function QueryInterface() {
           schema: result.schema || [],
           rowCount: result.rowCount || 0,
           preview: result.preview || [],
+          fullData: result.fullData,
         });
         
         addMessage({
@@ -303,6 +304,7 @@ export function QueryInterface() {
                       schema: result.schema || [],
                       rowCount: result.data?.length || 0,
                       preview: result.data || [],
+                      fullData: result.fullData || result.data,
                     });
                   } else {
                     alert("Failed to load sample data: " + result.error);
