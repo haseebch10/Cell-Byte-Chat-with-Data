@@ -1,12 +1,19 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { Send, Upload, Database, FileText, User, BarChart3 } from "lucide-react";
+import { Send, Upload, Database, FileText, User, BarChart3, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
 import { cn } from "@/lib/utils";
+import { 
+  LoadingSpinner, 
+  ContextualLoading, 
+  ErrorState, 
+  EmptyState, 
+  ProgressIndicator 
+} from "@/components/ui/loading-states";
 
 
 // tRPC client for HTTP endpoints
@@ -95,6 +102,19 @@ export function QueryInterface() {
   const [inputValue, setInputValue] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  
+  // Enhanced state management for better UX
+  const [loadingType, setLoadingType] = useState<"upload" | "processing" | "analyzing" | null>(null);
+  const [error, setError] = useState<{
+    type: "error" | "warning" | "network" | "api";
+    message: string;
+    title?: string;
+    retryAction?: () => void;
+  } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    step: number;
+    steps: string[];
+  } | null>(null);
 
 
 
@@ -105,8 +125,16 @@ export function QueryInterface() {
     const userMessage = inputValue.trim();
     setInputValue("");
     setIsLoading(true);
+    setLoadingType("analyzing");
+    setError(null);
 
     addMessage({ type: "user", content: userMessage });
+
+    const retryQuery = () => {
+      setError(null);
+      setInputValue(userMessage);
+      handleSubmit(e);
+    };
 
     try {
       if (!currentDataset.id) {
@@ -150,8 +178,25 @@ export function QueryInterface() {
           });
         }
       } else {
-        // Query failed - show detailed error
+        // Query failed - show error state instead of chat message
         const errorMsg = data.error || data.details || "Unknown error occurred";
+        
+        // Determine error type based on message content
+        let errorType: "error" | "api" | "network" = "error";
+        if (errorMsg.includes("OpenAI") || errorMsg.includes("API key")) {
+          errorType = "api";
+        } else if (errorMsg.includes("network") || errorMsg.includes("timeout")) {
+          errorType = "network";
+        }
+        
+        setError({
+          type: errorType,
+          title: "Query Failed",
+          message: errorMsg,
+          retryAction: retryQuery
+        });
+        
+        // Also add to chat for context
         const sqlInfo = data.sql ? `\n\n**Generated SQL:** \`${data.sql}\`` : "";
         addMessage({ 
           type: "assistant", 
@@ -159,30 +204,71 @@ export function QueryInterface() {
         });
       }
     } catch (err) {
-      addMessage({ type: "assistant", content: `Error: ${err instanceof Error ? err.message : "Unknown error"}` });
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      
+      setError({
+        type: "network",
+        title: "Connection Error", 
+        message: errorMessage,
+        retryAction: retryQuery
+      });
+      
+      addMessage({ type: "assistant", content: `Error: ${errorMessage}` });
     } finally {
       setIsLoading(false);
+      setLoadingType(null);
     }
   };
 
   const processFile = useCallback(async (file: File) => {
+    // Clear any existing errors
+    setError(null);
+    
+    // Validate file type
     if (!file.name.endsWith(".csv")) {
-      alert("Please upload a CSV file");
+      setError({
+        type: "warning",
+        title: "Invalid File Type",
+        message: "Please upload a CSV file. Only .csv files are supported for data analysis.",
+      });
       return;
     }
 
+    // Validate file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
-      alert(`File too large. Limit is 5MB.`);
+      setError({
+        type: "warning",
+        title: "File Too Large",
+        message: `File size is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Please upload a file smaller than 5MB for optimal performance.`,
+      });
       return;
     }
 
     setUploadedFile(file);
     setIsLoading(true);
+    setLoadingType("upload");
+    
+    // Set up progress tracking
+    const steps = ["Reading", "Processing", "Analyzing", "Complete"];
+    setUploadProgress({ step: 0, steps });
+
+    const retryUpload = () => {
+      setError(null);
+      processFile(file);
+    };
 
     try {
+      // Step 1: Reading file
+      setUploadProgress({ step: 0, steps });
       const csvData = await file.text();
+      
+      // Step 2: Processing 
+      setUploadProgress({ step: 1, steps });
       const result = await tRPCClient.processCSV(csvData, file.name);
 
+      // Step 3: Analyzing
+      setUploadProgress({ step: 2, steps });
+      
       if (result.success) {
         const datasetId = result.datasetId || Math.random().toString(36).substr(2, 9);
         
@@ -195,13 +281,23 @@ export function QueryInterface() {
           fullData: result.fullData,
         });
         
+        // Step 4: Complete
+        setUploadProgress({ step: 3, steps });
+        
         addMessage({
           type: "assistant",
           content: `✅ Successfully uploaded "${file.name}"!\n\nDataset contains ${result.rowCount || 0} rows and ${(result.schema || []).length} columns.\n\nYou can now ask questions about your data.`
         });
       } else {
         const errorMsg = result.error || "Unknown error occurred";
-        alert(`Failed to process CSV: ${errorMsg}`);
+        
+        setError({
+          type: "error",
+          title: "Processing Failed",
+          message: `Could not process the CSV file: ${errorMsg}. Please check that your file is properly formatted.`,
+          retryAction: retryUpload
+        });
+        
         addMessage({
           type: "assistant",
           content: `❌ Failed to process CSV file: ${errorMsg}`
@@ -209,13 +305,30 @@ export function QueryInterface() {
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
-      alert(`Error processing file: ${errorMsg}`);
+      
+      // Determine error type based on error content
+      let errorType: "error" | "network" = "error";
+      if (errorMsg.includes("fetch") || errorMsg.includes("network") || errorMsg.includes("timeout")) {
+        errorType = "network";
+      }
+      
+      setError({
+        type: errorType,
+        title: errorType === "network" ? "Upload Failed" : "Processing Error",
+        message: errorType === "network" 
+          ? "Could not upload file due to network issues. Please check your connection and try again."
+          : `Error processing file: ${errorMsg}`,
+        retryAction: retryUpload
+      });
+      
       addMessage({
         type: "assistant",
         content: `❌ Error processing file: ${errorMsg}`
       });
     } finally {
       setIsLoading(false);
+      setLoadingType(null);
+      setUploadProgress(null);
     }
   }, [setCurrentDataset, setIsLoading, addMessage]);
 
@@ -241,19 +354,57 @@ export function QueryInterface() {
 
   if (!currentDataset) {
     return (
-      <div className="h-full flex flex-col items-center justify-center">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Database className="w-8 h-8 text-purple-600" />
+      <div className="h-full flex flex-col items-center justify-center px-4 py-8">
+        <div className="w-full max-w-lg">
+          {/* Enhanced Empty State */}
+          <EmptyState
+            icon={Database}
+            title="Welcome to CellByte Analytics"
+            description="Upload your CSV dataset or load sample data to begin analyzing your data with natural language queries powered by AI."
+            action={{
+              label: "Load Sample Data",
+              onClick: async () => {
+                setIsLoading(true);
+                setLoadingType("processing");
+                setError(null);
+                
+                try {
+                  const result = await tRPCClient.getSampleData("germany_sample");
+                  if (result.success) {
+                    setCurrentDataset({
+                      id: "sample-germany",
+                      name: "Germany Sample Dataset", 
+                      schema: result.schema || [],
+                      rowCount: result.data?.length || 0,
+                      preview: result.data || [],
+                      fullData: result.fullData || result.data,
+                    });
+                  } else {
+                    setError({
+                      type: "error",
+                      title: "Sample Data Loading Failed",
+                      message: result.error || "Failed to load sample data",
+                    });
+                  }
+                } catch (error) {
+                  const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
+                  setError({
+                    type: "network",
+                    title: "Could Not Load Sample Data",
+                    message: errorMsg,
+                  });
+                } finally {
+                  setIsLoading(false);
+                  setLoadingType(null);
+                }
+              }
+            }}
+          />
+          
+          <div className="mt-8">
+            <div className="text-center mb-6">
+              <p className="text-sm text-slate-500">Or upload your own data:</p>
             </div>
-            <h2 className="text-2xl font-semibold text-slate-900 mb-2">
-              Load Your Dataset
-            </h2>
-            <p className="text-slate-600">
-              Upload a CSV file or load sample data to start analyzing your data with natural language queries.
-            </p>
-          </div>
 
           {/* File Upload Area */}
           <Card
@@ -288,15 +439,23 @@ export function QueryInterface() {
             </div>
           </Card>
 
-          {/* Sample Data Option */}
+                    {/* Sample Data Option */}
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-600 mb-4">Or try with sample data:</p>
             <Button
               onClick={async () => {
                 setIsLoading(true);
+                setLoadingType("processing");
+                setError(null);
+                
+                const retrySample = () => {
+                  setError(null);
+                  // Re-trigger the sample data loading
+                };
+                
                 try {
                   const result = await tRPCClient.getSampleData("germany_sample");
-                                if (result.success) {
+                  if (result.success) {
                     
                     setCurrentDataset({
                       id: "sample-germany",
@@ -307,12 +466,27 @@ export function QueryInterface() {
                       fullData: result.fullData || result.data,
                     });
                   } else {
-                    alert("Failed to load sample data: " + result.error);
+                    const errorMsg = result.error || "Failed to load sample data";
+                    setError({
+                      type: "error",
+                      title: "Sample Data Loading Failed",
+                      message: errorMsg,
+                      retryAction: retrySample
+                    });
                   }
                 } catch (error) {
-                  alert("Error loading sample data: " + error);
+                  const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
+                  setError({
+                    type: "network",
+                    title: "Could Not Load Sample Data",
+                    message: errorMsg.includes("fetch") || errorMsg.includes("network")
+                      ? "Network connection issue. Please check your internet connection and try again."
+                      : errorMsg,
+                    retryAction: retrySample
+                  });
                 } finally {
                   setIsLoading(false);
+                  setLoadingType(null);
                 }
               }}
               disabled={isLoading}
@@ -323,63 +497,128 @@ export function QueryInterface() {
             </Button>
           </div>
 
-          {isLoading && (
-            <div className="text-center mt-4">
-              <div className="inline-flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-                <span className="text-sm text-slate-600">Processing data...</span>
-              </div>
+          {/* Enhanced Loading States */}
+          {isLoading && loadingType && (
+            <div className="mt-6">
+              <ContextualLoading 
+                type={loadingType}
+                size="md"
+                message={
+                  loadingType === "upload" ? "Uploading and processing your file..." :
+                  loadingType === "processing" ? "Loading sample dataset..." :
+                  loadingType === "analyzing" ? "Analyzing your query with AI..." :
+                  "Processing data..."
+                }
+              />
+              
+              {/* Progress indicator for uploads */}
+              {uploadProgress && (
+                <div className="mt-4">
+                  <ProgressIndicator
+                    steps={uploadProgress.steps}
+                    currentStep={uploadProgress.step}
+                  />
+                </div>
+              )}
             </div>
           )}
+          
+          {/* Error State Display */}
+          {error && (
+            <div className="mt-6">
+              <ErrorState
+                type={error.type}
+                title={error.title}
+                message={error.message}
+                onRetry={error.retryAction}
+                retryLabel="Try Again"
+              />
+            </div>
+          )}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-slate-900 mb-2">Query Your Data</h1>
-        <p className="text-sm text-slate-600">
-          Ask questions about your dataset using natural language
-        </p>
-        {currentDataset && (
-          <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-            <p className="text-sm font-medium text-purple-900">Active Dataset:</p>
-            <p className="text-sm text-purple-800">{currentDataset.name}</p>
-            <p className="text-xs text-purple-600">
-              {currentDataset.rowCount.toLocaleString()} rows • {currentDataset.schema.length} columns
+    <div className="h-full flex flex-col px-4 lg:px-0">
+      {/* Enhanced Header with Better Responsive Design */}
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-4">
+          <div>
+            <h1 className="text-lg sm:text-xl font-semibold text-slate-900 mb-1">Query Your Data</h1>
+            <p className="text-sm text-slate-600">
+              Ask questions about your dataset using natural language
             </p>
           </div>
+          
+          {/* Dataset Status Indicator */}
+          {currentDataset && (
+            <div className="flex-shrink-0">
+              <div className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium text-green-800">Dataset Active</span>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Dataset Info Card - More Mobile Friendly */}
+        {currentDataset && (
+          <Card className="bg-purple-50 border-purple-200">
+            <div className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-purple-900 truncate">{currentDataset.name}</p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-purple-600 mt-1">
+                    <span>{currentDataset.rowCount?.toLocaleString() || 0} rows</span>
+                    <span>{currentDataset.schema?.length || 0} columns</span>
+                  </div>
+                </div>
+                <Database className="w-5 h-5 text-purple-500 flex-shrink-0" />
+              </div>
+            </div>
+          </Card>
         )}
       </div>
 
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 mb-6">
-        {chatHistory.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center py-8">
-            <BarChart3 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500 mb-2">Start by asking a question</p>
-            <p className="text-sm text-slate-400">
-              Try: &quot;What are the costs by indication?&quot; or &quot;Show me treatment types&quot;
-            </p>
-          </div>
+      {/* Enhanced Chat Messages with Better Mobile Layout */}
+      <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 mb-4 sm:mb-6 min-h-0">
+        {chatHistory.length === 0 && !isLoading && (
+          <EmptyState
+            icon={BarChart3}
+            title="Start Your Analysis"
+            description="Ask questions about your data in natural language. I'll help you analyze and visualize the insights."
+            className="h-full flex items-center justify-center py-8"
+          />
         )}
 
         {chatHistory.map((message, index) => (
-          <div key={message.id || index} className="space-y-3">
+          <div key={message.id || index} className="animate-fade-in">
             {message.type === "user" ? (
-              <div className="text-right">
-                <div className="inline-block bg-purple-600 text-white rounded-lg px-4 py-2 max-w-lg">
-                  <p className="text-sm">{message.content}</p>
+              <div className="flex justify-end">
+                <div className="max-w-[85%] sm:max-w-lg bg-purple-600 text-white rounded-2xl rounded-tr-md px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <User className="w-4 h-4 flex-shrink-0 mt-0.5 opacity-80" />
+                    <p className="text-sm leading-relaxed">{message.content}</p>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div>
-                <div className="bg-slate-100 rounded-lg p-4">
-                  <div className="text-sm text-slate-800 whitespace-pre-wrap">
-                    {message.content}
+              <div className="flex justify-start">
+                <div className="max-w-[95%] sm:max-w-4xl bg-white border border-slate-200 rounded-2xl rounded-tl-md shadow-sm">
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <BarChart3 className="w-4 h-4 text-slate-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -387,38 +626,95 @@ export function QueryInterface() {
           </div>
         ))}
 
-        {isLoading && (
-          <div className="bg-slate-100 rounded-lg p-4">
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-              <span className="text-sm text-slate-600">Analyzing your data...</span>
+        {/* Enhanced Loading State for Chat */}
+        {isLoading && loadingType === "analyzing" && (
+          <div className="flex justify-start">
+            <div className="max-w-lg bg-white border border-slate-200 rounded-2xl rounded-tl-md shadow-sm">
+              <div className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <BarChart3 className="w-4 h-4 text-slate-600" />
+                  </div>
+                  <div className="flex-1">
+                    <ContextualLoading 
+                      type="analyzing" 
+                      size="sm"
+                      message="Analyzing your query with AI..."
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Query Input */}
-      <form onSubmit={handleSubmit} className="border-t border-slate-200 pt-4">
-        <div className="relative">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Ask questions about your data..."
-            disabled={isLoading || !currentDataset}
-            className="pr-12 py-3 text-base border-slate-300 focus:border-purple-500 focus:ring-purple-500"
+      {/* Error State Display in Main Interface */}
+      {error && (
+        <div className="mb-4">
+          <ErrorState
+            type={error.type}
+            title={error.title}
+            message={error.message}
+            onRetry={error.retryAction}
+            retryLabel="Try Again"
+            className="max-w-md mx-auto"
           />
-          <Button
-            type="submit"
-            size="sm"
-            disabled={isLoading || !inputValue.trim() || !currentDataset}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-600 hover:bg-purple-700"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
         </div>
-      </form>
-      
+      )}
 
+      {/* Enhanced Query Input with Better Mobile UX */}
+      <div className="border-t border-slate-200 pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="relative">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Ask questions about your data..."
+              disabled={isLoading || !currentDataset}
+              className={cn(
+                "pr-12 py-3 text-base border-slate-300 focus:border-purple-500 focus:ring-purple-500 rounded-xl",
+                "placeholder:text-slate-400 resize-none"
+              )}
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={isLoading || !inputValue.trim() || !currentDataset}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-600 hover:bg-purple-700 rounded-lg"
+            >
+              {isLoading && loadingType === "analyzing" ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
+          
+          {/* Helpful Suggestions for Empty Input */}
+          {!isLoading && inputValue.trim().length === 0 && chatHistory.length === 0 && (
+            <div className="text-center">
+              <p className="text-xs text-slate-500 mb-2">Try asking:</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {[
+                  "What are the top costs by indication?",
+                  "Show me treatment types",
+                  "Count unique brand names"
+                ].map((suggestion, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setInputValue(suggestion)}
+                    className="text-xs px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 transition-colors"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </form>
+      </div>
     </div>
   );
 }

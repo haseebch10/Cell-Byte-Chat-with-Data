@@ -15,42 +15,23 @@ const openai = env.OPENAI_API_KEY ? new OpenAI({
   apiKey: env.OPENAI_API_KEY,
 }) : null;
 
-// Helper function to generate fallback SQL
-function generateFallbackSQL(groupByField: string, aggregateField: string, aggregateType: string): string {
-  const sqlParts = ["SELECT"];
-  
-  if (groupByField) {
-    sqlParts.push(groupByField);
-  }
-  
-  if (aggregateType === "sum" && aggregateField) {
-    sqlParts.push(`${groupByField ? ", " : ""}SUM(${aggregateField}) as total_${aggregateField.toLowerCase()}`);
-  } else if (aggregateType === "avg" && aggregateField) {
-    sqlParts.push(`${groupByField ? ", " : ""}AVG(${aggregateField}) as avg_${aggregateField.toLowerCase()}`);
-  } else {
-    sqlParts.push(`${groupByField ? ", " : ""}COUNT(*) as count`);
-  }
-  
-  sqlParts.push("FROM dataset");
-  
-  if (groupByField) {
-    sqlParts.push(`GROUP BY ${groupByField}`);
-    sqlParts.push("LIMIT 20");
-  }
-  
-  return sqlParts.join(" ");
-}
+
 
 // Helper function to convert natural language to SQL using OpenAI
 async function naturalLanguageToSQL(query: string, schema: any[]): Promise<{
-  sql: string;
-  aggregationType: string;
-  groupByField: string;
-  aggregateField: string;
-  chartType: "bar" | "line" | "pie";
+  success: boolean;
+  sql?: string;
+  aggregationType?: string;
+  groupByField?: string;
+  aggregateField?: string;
+  chartType?: "bar" | "line" | "pie";
+  error?: string;
 }> {
   if (!openai) {
-    throw new Error("OpenAI API key not configured");
+    return {
+      success: false,
+      error: "OpenAI API key not configured. Please set OPENAI_API_KEY in your environment variables.",
+    };
   }
 
   // Create schema description for the LLM
@@ -108,11 +89,15 @@ Chart type rules:
 
     const response = completion.choices[0]?.message?.content;
     if (!response) {
-      throw new Error("No response from OpenAI");
+      return {
+        success: false,
+        error: "OpenAI returned an empty response. Please try rephrasing your query.",
+      };
     }
 
     const parsed = JSON.parse(response);
     return {
+      success: true,
       sql: parsed.sql || "SELECT * FROM dataset LIMIT 10",
       aggregationType: parsed.aggregationType || "count",
       groupByField: parsed.groupByField || "",
@@ -121,9 +106,99 @@ Chart type rules:
     };
   } catch (error) {
     console.error("OpenAI SQL generation error:", error);
-    // Fallback to rule-based approach
-    throw error;
+    
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    if (errorMessage.includes("timeout")) {
+      return {
+        success: false,
+        error: "OpenAI request timed out. Please try again with a simpler query.",
+      };
+    } else if (errorMessage.includes("JSON")) {
+      return {
+        success: false,
+        error: "OpenAI returned invalid response format. Please try rephrasing your query.",
+      };
+    } else {
+      return {
+        success: false,
+        error: `Failed to process your query: ${errorMessage}. Please try rephrasing your request.`,
+      };
+    }
   }
+}
+
+// Helper function to simulate basic SQL execution with JavaScript
+function executeBasicSQL(dataset: any[], queryAnalysis: {
+  aggregationType?: string;
+  groupByField?: string;
+  aggregateField?: string;
+}): any[] {
+  const { aggregationType = "count", groupByField = "", aggregateField = "" } = queryAnalysis;
+
+  // If no grouping, return simple aggregation
+  if (!groupByField) {
+    if (aggregationType === "count") {
+      return [{ count: dataset.length }];
+    }
+    if (aggregateField && aggregationType === "sum") {
+      const sum = dataset.reduce((acc, row) => acc + (parseFloat(row[aggregateField]) || 0), 0);
+      return [{ [`total_${aggregateField.toLowerCase()}`]: sum }];
+    }
+    if (aggregateField && aggregationType === "avg") {
+      const sum = dataset.reduce((acc, row) => acc + (parseFloat(row[aggregateField]) || 0), 0);
+      const avg = dataset.length > 0 ? sum / dataset.length : 0;
+      return [{ [`avg_${aggregateField.toLowerCase()}`]: avg }];
+    }
+    return [{ count: dataset.length }];
+  }
+
+  // Group by field and aggregate
+  const groups = new Map<string, { sum: number; count: number; items: any[] }>();
+
+  dataset.forEach(row => {
+    const groupValue = String(row[groupByField] || "Unknown");
+    
+    if (!groups.has(groupValue)) {
+      groups.set(groupValue, { sum: 0, count: 0, items: [] });
+    }
+    
+    const group = groups.get(groupValue)!;
+    group.count += 1;
+    group.items.push(row);
+    
+    if (aggregateField && row[aggregateField]) {
+      const value = parseFloat(row[aggregateField]) || 0;
+      group.sum += value;
+    }
+  });
+
+  // Generate results
+  const result: any[] = [];
+  groups.forEach((group, key) => {
+    const resultRow: any = {};
+    resultRow[groupByField] = key;
+    
+    if (aggregationType === "sum" && aggregateField) {
+      resultRow[`total_${aggregateField.toLowerCase()}`] = group.sum;
+    } else if (aggregationType === "avg" && aggregateField) {
+      resultRow[`avg_${aggregateField.toLowerCase()}`] = group.count > 0 ? group.sum / group.count : 0;
+    } else {
+      resultRow["count"] = group.count;
+    }
+    
+    result.push(resultRow);
+  });
+
+  // Sort results by value (descending)
+  if (result.length > 0) {
+    const valueKey = Object.keys(result[0]).find(key => key !== groupByField);
+    if (valueKey) {
+      result.sort((a, b) => (b[valueKey] || 0) - (a[valueKey] || 0));
+    }
+  }
+
+  return result;
 }
 
 export const dataRouter = createTRPCRouter({
@@ -268,219 +343,84 @@ export const dataRouter = createTRPCRouter({
       }
     }),
 
-  // Process natural language query
+  // Process natural language query using OpenAI only
   processQuery: publicProcedure
     .input(z.object({
       query: z.string(),
       datasetId: z.string(),
     }))
     .mutation(async ({ input }) => {
-      let queryAnalysis: any = null;
-      let chartType: "bar" | "line" | "pie" = "bar";
-      let groupByField = "";
-      let aggregateField = "";
-      let aggregateType = "count";
-
       try {
         // Get the actual dataset from our store
         const dataset = datasetStore.get(input.datasetId);
         if (!dataset || dataset.length === 0) {
           return {
             success: false,
-            error: "Dataset not found or empty",
+            error: "Dataset not found or empty. Please upload a dataset first.",
           };
         }
 
-        // Get dataset schema for LLM
+        // Get dataset schema for OpenAI
         const firstRow = dataset[0];
-        const columns = Object.keys(firstRow);
-        const schema = columns.map(col => ({
+        const schema = Object.keys(firstRow).map(col => ({
           name: col,
           type: typeof firstRow[col] === 'number' ? 'number' : 
                 typeof firstRow[col] === 'string' && /^\d{4}-\d{2}-\d{2}/.test(firstRow[col]) ? 'date' : 'string',
           sample: String(firstRow[col] || '').substring(0, 50)
         }));
 
-        // Try OpenAI first, fallback to rule-based
-        if (openai) {
-          try {
-            queryAnalysis = await naturalLanguageToSQL(input.query, schema);
-            chartType = queryAnalysis.chartType;
-            groupByField = queryAnalysis.groupByField;
-            aggregateField = queryAnalysis.aggregateField;
-            aggregateType = queryAnalysis.aggregationType;
-          } catch (openaiError) {
-            // Fallback to original rule-based logic
-            const query = input.query.toLowerCase();
-            
-            if (query.includes("trend") || query.includes("over time") || query.includes("time")) {
-              chartType = "line";
-            } else if (query.includes("distribution") || query.includes("breakdown") || query.includes("pie")) {
-              chartType = "pie";
-            }
-
-            // Find relevant columns
-            const costFields = columns.filter(col => 
-              col.toLowerCase().includes("cost") || col.toLowerCase().includes("price") || 
-              col.toLowerCase().includes("value") || col.toLowerCase().includes("amount")
-            );
-            const categoryFields = columns.filter(col => 
-              col.toLowerCase().includes("indication") || col.toLowerCase().includes("treatment") || 
-              col.toLowerCase().includes("type") || col.toLowerCase().includes("brand")
-            );
-
-            if (query.includes("indication")) {
-              groupByField = columns.find(col => col.toLowerCase().includes("indication")) || "";
-            } else if (query.includes("treatment")) {
-              groupByField = columns.find(col => col.toLowerCase().includes("treatment")) || "";
-            } else if (categoryFields.length > 0) {
-              groupByField = categoryFields[0];
-            }
-
-            if (query.includes("cost") || query.includes("sum") || query.includes("total")) {
-              aggregateType = "sum";
-              aggregateField = costFields[0] || "";
-            } else if (query.includes("average") || query.includes("avg")) {
-              aggregateType = "avg";
-              aggregateField = costFields[0] || "";
-            }
-          }
-        } else {
-          // If no OpenAI, go straight to rule-based logic
-          const query = input.query.toLowerCase();
-          
-          if (query.includes("trend") || query.includes("over time") || query.includes("time")) {
-            chartType = "line";
-          } else if (query.includes("distribution") || query.includes("breakdown") || query.includes("pie")) {
-            chartType = "pie";
-          }
-
-          // Find relevant columns
-          const costFields = columns.filter(col => 
-            col.toLowerCase().includes("cost") || col.toLowerCase().includes("price") || 
-            col.toLowerCase().includes("value") || col.toLowerCase().includes("amount")
-          );
-          const categoryFields = columns.filter(col => 
-            col.toLowerCase().includes("indication") || col.toLowerCase().includes("treatment") || 
-            col.toLowerCase().includes("type") || col.toLowerCase().includes("brand")
-          );
-
-          if (query.includes("indication")) {
-            groupByField = columns.find(col => col.toLowerCase().includes("indication")) || "";
-          } else if (query.includes("treatment")) {
-            groupByField = columns.find(col => col.toLowerCase().includes("treatment")) || "";
-          } else if (query.includes("brand")) {
-            groupByField = columns.find(col => col.toLowerCase().includes("brand")) || "";
-          } else if (categoryFields.length > 0) {
-            groupByField = categoryFields[0];
-          }
-
-          if (query.includes("cost") || query.includes("sum") || query.includes("total")) {
-            aggregateType = "sum";
-            aggregateField = costFields[0] || "";
-          } else if (query.includes("average") || query.includes("avg")) {
-            aggregateType = "avg";
-            aggregateField = costFields[0] || "";
-          } else if (query.includes("unique") || query.includes("distinct")) {
-            aggregateType = "count";
-          }
+        // Use OpenAI to analyze query
+        const queryAnalysis = await naturalLanguageToSQL(input.query, schema);
+        
+        if (!queryAnalysis.success) {
+          return {
+            success: false,
+            error: queryAnalysis.error,
+            sql: "-- OpenAI query analysis failed",
+          };
         }
 
-        // Perform aggregation on the actual dataset
-        const result: any[] = [];
-        const groups = new Map<string, { sum: number; count: number; items: any[] }>();
-
-        // Group data
-        dataset.forEach(row => {
-          const groupValue = groupByField ? String(row[groupByField] || "Unknown") : "All";
-          
-          if (!groups.has(groupValue)) {
-            groups.set(groupValue, { sum: 0, count: 0, items: [] });
-          }
-          
-          const group = groups.get(groupValue)!;
-          group.count += 1;
-          group.items.push(row);
-          
-          if (aggregateField && row[aggregateField]) {
-            const value = parseFloat(row[aggregateField]) || 0;
-            group.sum += value;
-          }
-        });
-
-        // Generate results
-        groups.forEach((group, key) => {
-          const resultRow: any = {};
-          
-          if (groupByField) {
-            resultRow[groupByField] = key;
-          }
-          
-          if (aggregateType === "sum" && aggregateField) {
-            resultRow[`total_${aggregateField.toLowerCase()}`] = group.sum;
-          } else if (aggregateType === "avg" && aggregateField) {
-            resultRow[`avg_${aggregateField.toLowerCase()}`] = group.count > 0 ? group.sum / group.count : 0;
-          } else {
-            resultRow["count"] = group.count;
-          }
-          
-          result.push(resultRow);
-        });
-
-        // Sort results by value (descending)
-        if (result.length > 0) {
-          const valueKey = Object.keys(result[0]).find(key => key !== groupByField);
-          if (valueKey) {
-            result.sort((a, b) => (b[valueKey] || 0) - (a[valueKey] || 0));
-          }
-        }
-
-        // Generate SQL representation
-        const sql = queryAnalysis?.sql || generateFallbackSQL(groupByField, aggregateField, aggregateType);
+        // For now, we'll simulate SQL execution with basic JavaScript aggregation
+        // In a real implementation, you might want to use a SQL engine like sqlite
+        const result = executeBasicSQL(dataset, queryAnalysis);
 
         // Determine display type based on result structure and query intent
         let displayType: "number" | "chart" | "table" = "chart";
         
-        // Single value result = number display
         if (result.length === 1 && Object.keys(result[0]).length === 1) {
           displayType = "number";
-        }
-        // Filter/show/list queries = table display
-        else if (input.query.toLowerCase().includes("filter") || 
-                 input.query.toLowerCase().includes("show me") ||
-                 input.query.toLowerCase().includes("list") ||
-                 input.query.toLowerCase().includes("find") ||
-                 result.length > 10) {
+        } else if (input.query.toLowerCase().includes("filter") || 
+                   input.query.toLowerCase().includes("show me") ||
+                   input.query.toLowerCase().includes("list") ||
+                   input.query.toLowerCase().includes("find") ||
+                   result.length > 10) {
           displayType = "table";
-        }
-        // Multiple grouped results = chart display
-        else {
+        } else {
           displayType = "chart";
         }
 
         return {
           success: true,
           interpretation: {
-            aggregation: aggregateType,
-            groupBy: groupByField ? [groupByField] : [],
+            aggregation: queryAnalysis.aggregationType || "count",
+            groupBy: queryAnalysis.groupByField ? [queryAnalysis.groupByField] : [],
             filters: [],
-            chartType,
+            chartType: queryAnalysis.chartType || "bar",
             displayType,
           },
-          sql,
-          result: result.slice(0, 20),
+          sql: queryAnalysis.sql,
+          result: result.slice(0, 20), // Limit results for performance
           displayType,
         };
 
       } catch (error) {
-        // Include SQL for debugging
-        const sql = queryAnalysis?.sql || generateFallbackSQL(groupByField, aggregateField, aggregateType);
+        console.error("Query processing error:", error);
         
         return {
           success: false,
           error: "Failed to process query",
           details: error instanceof Error ? error.message : "Unknown error",
-          sql,
+          sql: "-- Query processing failed",
         };
       }
     }),

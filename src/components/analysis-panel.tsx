@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Database, Table, BarChart3, Download, Copy, ArrowLeft, BarChart, LineChart, PieChart, TableProperties } from "lucide-react";
+import { Database, Table, BarChart3, Download, Copy, ArrowLeft, BarChart, LineChart, PieChart, TableProperties, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
@@ -9,6 +9,13 @@ import { DataVisualization } from "@/components/data-visualization";
 import { FilterControls } from "@/components/filter-controls";
 import { downloadAsCSV, downloadAsPNG, generateExportFilename } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { 
+  LoadingSpinner, 
+  TableSkeleton, 
+  ChartSkeleton, 
+  EmptyState, 
+  ErrorState 
+} from "@/components/ui/loading-states";
 
 export function AnalysisPanel() {
   const { 
@@ -198,14 +205,16 @@ export function AnalysisPanel() {
     );
   };
 
-  // Show loading state when no dataset
+  // Enhanced empty state when no dataset
   if (!currentDataset) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-500">Load a dataset to start analysis</p>
-        </div>
+      <div className="h-full flex items-center justify-center p-6">
+        <EmptyState
+          icon={Database}
+          title="No Dataset Loaded"
+          description="Upload a CSV file or load sample data from the left panel to start analyzing your data and viewing insights here."
+          className="max-w-md"
+        />
       </div>
     );
   }
@@ -320,92 +329,161 @@ export function AnalysisPanel() {
     );
   }
 
-  // Show dataset overview by default
+  // Enhanced dataset overview with responsive design and loading states  
   return (
-    <div className="h-full flex flex-col space-y-6">
-      {/* Dataset Overview Stats */}
-      <div>
-        <h2 className="text-xl font-semibold text-slate-900 mb-4">Dataset Overview</h2>
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="text-center p-4 bg-slate-50 rounded-lg border">
-            <div className="text-2xl font-bold text-slate-900">{currentDataset.rowCount.toLocaleString()}</div>
-            <div className="text-sm text-slate-600">Rows</div>
+    <div className="h-full space-y-4 sm:space-y-6 overflow-y-auto p-4 sm:p-6">
+      {/* Enhanced Dataset Overview Header */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg sm:text-xl">Dataset Overview</CardTitle>
+              <p className="text-sm text-slate-600 mt-1 truncate">
+                {currentDataset.name}
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              Active Dataset
+            </div>
           </div>
-          <div className="text-center p-4 bg-slate-50 rounded-lg border">
-            <div className="text-2xl font-bold text-slate-900">{currentDataset.schema.length}</div>
-            <div className="text-sm text-slate-600">Columns</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Schema */}
-      <div>
-        <h3 className="font-semibold text-slate-900 mb-3">Schema</h3>
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {currentDataset.schema.map((col) => (
-            <div key={col.name} className="flex items-center justify-between p-2 bg-slate-50 rounded border">
-              <div className="flex-1">
-                <div className="font-medium text-sm text-slate-900">{col.name}</div>
-                <div className="text-xs text-slate-500">{col.sample}</div>
+        </CardHeader>
+        
+        <CardContent>
+          {/* Enhanced Dataset Stats - Responsive Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="text-center p-3 sm:p-4 bg-slate-50 rounded-lg border">
+              <div className="text-xl sm:text-2xl font-bold text-slate-900">
+                {currentDataset.rowCount?.toLocaleString() || 0}
               </div>
-              <div className="text-xs px-2 py-1 bg-slate-200 text-slate-700 rounded">
-                {col.type}
+              <div className="text-xs sm:text-sm text-slate-600">Rows</div>
+            </div>
+            <div className="text-center p-3 sm:p-4 bg-slate-50 rounded-lg border">
+              <div className="text-xl sm:text-2xl font-bold text-slate-900">
+                {currentDataset.schema?.length || 0}
+              </div>
+              <div className="text-xs sm:text-sm text-slate-600">Columns</div>
+            </div>
+            <div className="text-center p-3 sm:p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="text-xl sm:text-2xl font-bold text-purple-900">
+                {currentDataset.schema?.filter(col => col.type === 'number').length || 0}
+              </div>
+              <div className="text-xs sm:text-sm text-purple-600">Numeric</div>
+            </div>
+            <div className="text-center p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="text-xl sm:text-2xl font-bold text-blue-900">
+                {currentDataset.schema?.filter(col => col.type === 'date').length || 0}
+              </div>
+              <div className="text-xs sm:text-sm text-blue-600">Dates</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Enhanced Schema Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base sm:text-lg">Column Schema</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {currentDataset.schema && currentDataset.schema.length > 0 ? (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {currentDataset.schema.map((col) => (
+                <div key={col.name} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+                  <div className="flex-1 min-w-0 mr-3">
+                    <div className="font-medium text-sm text-slate-900 truncate">{col.name}</div>
+                    <div className="text-xs text-slate-500 truncate mt-1">
+                      {col.sample ? `Sample: ${col.sample}` : 'No sample data'}
+                    </div>
+                  </div>
+                  <div className={cn(
+                    "text-xs px-2 py-1 rounded-full font-medium flex-shrink-0",
+                    col.type === 'number' ? "bg-purple-100 text-purple-700" :
+                    col.type === 'date' ? "bg-blue-100 text-blue-700" :
+                    "bg-slate-200 text-slate-700"
+                  )}>
+                    {col.type}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <TableSkeleton rows={3} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Enhanced Data Preview */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-base sm:text-lg">Data Preview</CardTitle>
+              <p className="text-sm text-slate-600">
+                First {Math.min(5, currentDataset.preview?.length || 0)} rows
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                if (currentDataset?.preview) {
+                  const filename = generateExportFilename(`${currentDataset.name?.replace(/[^a-zA-Z0-9]/g, '-') || 'dataset'}-preview`, "csv");
+                  downloadAsCSV(currentDataset.preview, filename);
+                }
+              }}
+              className="w-full sm:w-auto"
+            >
+              <Download className="w-3 h-3 mr-1" />
+              Export Preview
+            </Button>
+          </div>
+        </CardHeader>
+        
+        <CardContent>
+          {currentDataset.preview && currentDataset.preview.length > 0 ? (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      {currentDataset.schema?.map((col) => (
+                        <th key={col.name} className="text-left px-3 py-3 font-medium text-slate-700 border-b border-slate-200 min-w-[100px]">
+                          <div className="truncate">{col.name}</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {currentDataset.preview.slice(0, 5).map((row, i) => (
+                      <tr key={i} className="hover:bg-slate-50 transition-colors">
+                        {currentDataset.schema?.map((col) => (
+                          <td key={col.name} className="px-3 py-3 text-slate-900 max-w-[150px]">
+                            <div className="truncate" title={String(row[col.name] || '-')}>
+                              {String(row[col.name] || '-')}
+                            </div>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Data Preview - First 5 Rows */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-slate-900">Data Preview</h3>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => {
-              if (currentDataset?.preview) {
-                const filename = generateExportFilename(`${currentDataset.name?.replace(/[^a-zA-Z0-9]/g, '-') || 'dataset'}-preview`, "csv");
-                downloadAsCSV(currentDataset.preview, filename);
-              }
-            }}
-          >
-            <Download className="w-3 h-3 mr-1" />
-            Export Preview
-          </Button>
-        </div>
-        
-        <div className="text-sm text-slate-600 mb-3">
-          First {Math.min(5, currentDataset.preview.length)} rows:
-        </div>
-
-        <div className="border border-slate-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  {currentDataset.schema.map((col) => (
-                    <th key={col.name} className="text-left px-3 py-2 font-medium text-slate-700 border-b border-slate-200">
-                      {col.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {currentDataset.preview.slice(0, 5).map((row, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    {currentDataset.schema.map((col) => (
-                      <td key={col.name} className="px-3 py-2 text-slate-900 max-w-[120px] truncate">
-                        {String(row[col.name] || '-')}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+          ) : (
+            <div className="text-center py-8">
+              <EmptyState
+                icon={Table}
+                title="No Preview Data"
+                description="Data preview is not available for this dataset."
+                className="py-4"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
