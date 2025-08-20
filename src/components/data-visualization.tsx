@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   BarChart,
   Bar,
@@ -16,8 +16,6 @@ import {
   Pie,
   Cell,
 } from "recharts";
-
-import { cn } from "@/lib/utils";
 
 type ChartConfig = {
   type: "bar" | "line" | "pie";

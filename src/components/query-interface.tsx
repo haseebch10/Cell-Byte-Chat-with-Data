@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { Send, Upload, Database, FileText, User, BarChart3, AlertTriangle } from "lucide-react";
+import { Send, Upload, Database, User, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";

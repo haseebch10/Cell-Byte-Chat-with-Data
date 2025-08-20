@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Database, Table, BarChart3, Download, Copy, ArrowLeft, BarChart, LineChart, PieChart, TableProperties, Loader2 } from "lucide-react";
+import { Database, Table, BarChart3, Download, ArrowLeft, BarChart, LineChart, PieChart, TableProperties } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
@@ -10,11 +10,8 @@ import { FilterControls } from "@/components/filter-controls";
 import { downloadAsCSV, downloadAsPNG, generateExportFilename } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { 
-  LoadingSpinner, 
-  TableSkeleton, 
-  ChartSkeleton, 
-  EmptyState, 
-  ErrorState 
+  TableSkeleton,
+  EmptyState
 } from "@/components/ui/loading-states";
 
 export function AnalysisPanel() {
