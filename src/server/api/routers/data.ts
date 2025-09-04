@@ -17,6 +17,176 @@ const openai = env.OPENAI_API_KEY ? new OpenAI({
 
 
 
+// Generate dynamic chart code using OpenAI GPT-4 Turbo
+// This function generates React/TypeScript code using Recharts
+async function generateChartCode(
+  originalQuery: string, 
+  data: any[], 
+  schema: any[], 
+  chartType?: string
+): Promise<{
+  success: boolean;
+  code?: string;
+  error?: string;
+}> {
+  if (!openai) {
+    return {
+      success: false,
+      error: "OpenAI API key not configured. Please set OPENAI_API_KEY in your environment variables.",
+    };
+  }
+
+  // Create data description for the LLM (only first 3 rows to save tokens)
+  const dataDescription = data.slice(0, 3).map((row, i) => 
+    `Row ${i + 1}: ${JSON.stringify(row)}`
+  ).join('\n');
+
+  const schemaDescription = schema.map(col => 
+    `${col.name} (${col.type}): ${col.sample}`
+  ).join('\n');
+
+  const prompt = `Generate executable JavaScript code for a ${chartType || "chart"} using React.createElement and Recharts.
+
+Data: ${JSON.stringify(data.slice(0, 3))}
+
+REQUIREMENTS:
+- Generate a JavaScript function that returns React.createElement calls
+- Use React.createElement instead of JSX (no < > syntax)
+- Function takes (data, React, Recharts) as parameters
+- Use exact field names from the data
+- Make it directly executable with eval()
+
+AVAILABLE RECHARTS COMPONENTS:
+- BarChart, Bar, LineChart, Line, PieChart, Pie, Cell
+- AreaChart, Area, ScatterChart, Scatter, RadarChart, Radar
+- XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+- PolarGrid, PolarAngleAxis, PolarRadiusAxis, ComposedChart, ReferenceLine
+
+FOR HEATMAPS: Use ScatterChart with custom styling or BarChart with small bars
+
+EXAMPLE FOR BAR CHART:
+\`\`\`javascript
+function(data, React, Recharts) {
+  const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
+  
+  return React.createElement('div', { style: { width: '100%', height: 300 } },
+    React.createElement(ResponsiveContainer, {},
+      React.createElement(BarChart, { data: data },
+        React.createElement(CartesianGrid, { strokeDasharray: '3 3' }),
+        React.createElement(XAxis, { dataKey: 'name' }),
+        React.createElement(YAxis, {}),
+        React.createElement(Tooltip, {}),
+        React.createElement(Legend, {}),
+        React.createElement(Bar, { dataKey: 'value', fill: '#8884d8' })
+      )
+    )
+  );
+}
+\`\`\`
+
+EXAMPLE FOR PIE CHART:
+\`\`\`javascript
+function(data, React, Recharts) {
+  const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } = Recharts;
+  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300'];
+  
+  return React.createElement('div', { style: { width: '100%', height: 300 } },
+    React.createElement(ResponsiveContainer, {},
+      React.createElement(PieChart, {},
+        React.createElement(Pie, { 
+          data: data, 
+          dataKey: 'value', 
+          nameKey: 'category',
+          cx: '50%', 
+          cy: '50%', 
+          outerRadius: 80, 
+          fill: '#8884d8' 
+        }, data.map((entry, index) => 
+          React.createElement(Cell, { key: 'cell-' + index, fill: colors[index % colors.length] })
+        )),
+        React.createElement(Tooltip, {})
+      )
+    )
+  );
+}
+\`\`\`
+
+Generate executable JavaScript function for ${chartType || "requested"} chart using React.createElement.`;
+
+  try {
+    const completionPromise = openai.chat.completions.create({
+      model: "gpt-4-turbo-preview", // Using the latest GPT-4 Turbo for better performance
+      messages: [
+        { role: "system", content: "You are a React expert that generates executable JavaScript functions using React.createElement and Recharts. You MUST return ONLY the function code that can be executed with eval() - no JSX, no explanations." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.1,
+      max_tokens: 3000, // Token limit for chart generation
+    });
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('OpenAI request timeout after 20 seconds')), 20000)
+    );
+
+    const completion = await Promise.race([completionPromise, timeoutPromise]) as any;
+
+    const response = completion.choices[0]?.message?.content;
+    if (!response) {
+      return {
+        success: false,
+        error: "OpenAI returned an empty response. Please try rephrasing your query.",
+      };
+    }
+
+    // Extract JavaScript code from markdown code blocks if present
+    let code = response.trim();
+    if (code.includes('```javascript')) {
+      const codeMatch = code.match(/```javascript\n([\s\S]*?)\n```/);
+      if (codeMatch) {
+        code = codeMatch[1];
+      }
+    } else if (code.includes('```')) {
+      const codeMatch = code.match(/```\n([\s\S]*?)\n```/);
+      if (codeMatch) {
+        code = codeMatch[1];
+      }
+    }
+
+    if (!code || code.trim().length === 0) {
+      return {
+        success: false,
+        error: "Generated response does not contain valid code.",
+      };
+    }
+
+    return {
+      success: true,
+      code: code.trim(),
+    };
+  } catch (error) {
+    console.error("OpenAI chart generation error:", error);
+    
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    if (errorMessage.includes("timeout")) {
+      return {
+        success: false,
+        error: "OpenAI request timed out. Please try again with a simpler query.",
+      };
+    } else if (errorMessage.includes("JSON")) {
+      return {
+        success: false,
+        error: "OpenAI returned invalid response format. Please try rephrasing your query.",
+      };
+    } else {
+      return {
+        success: false,
+        error: `Failed to generate chart: ${errorMessage}. Please try rephrasing your request.`,
+      };
+    }
+  }
+}
+
 // Convert natural language queries to SQL using OpenAI
 async function naturalLanguageToSQL(query: string, schema: any[]): Promise<{
   success: boolean;
@@ -71,13 +241,13 @@ Chart type rules:
   try {
     // Add timeout to prevent hanging
     const completionPromise = openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4-turbo-preview", // Using GPT-4 Turbo for better SQL generation
       messages: [
-        { role: "system", content: "You are a SQL expert that returns only valid JSON responses." },
+        { role: "system", content: "You are a SQL expert that returns only valid JSON responses. You excel at generating accurate SQL queries for data analysis and visualization." },
         { role: "user", content: prompt }
       ],
       temperature: 0.1,
-      max_tokens: 500,
+      max_tokens: 800, // Increased token limit for more complex queries
     });
 
     // Race with timeout (10 seconds)
@@ -95,7 +265,15 @@ Chart type rules:
       };
     }
 
-    const parsed = JSON.parse(response);
+    // Extract JSON from markdown code blocks if present
+    let jsonString = response.trim();
+    if (jsonString.startsWith('```json')) {
+      jsonString = jsonString.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (jsonString.startsWith('```')) {
+      jsonString = jsonString.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+
+    const parsed = JSON.parse(jsonString);
     return {
       success: true,
       sql: parsed.sql || "SELECT * FROM dataset LIMIT 10",
@@ -485,6 +663,49 @@ export const dataRouter = createTRPCRouter({
           error: "Failed to process query",
           details: error instanceof Error ? error.message : "Unknown error",
           sql: "-- Query processing failed",
+        };
+      }
+    }),
+
+  // Generate dynamic chart HTML using OpenAI
+  generateChart: publicProcedure
+    .input(z.object({
+      originalQuery: z.string(),
+      data: z.array(z.record(z.any())),
+      schema: z.array(z.object({
+        name: z.string(),
+        type: z.string(),
+        sample: z.string(),
+      })),
+      chartType: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const result = await generateChartCode(
+          input.originalQuery,
+          input.data,
+          input.schema,
+          input.chartType
+        );
+
+        if (!result.success) {
+          return {
+            success: false,
+            error: result.error,
+          };
+        }
+
+        return {
+          success: true,
+          code: result.code,
+        };
+      } catch (error) {
+        console.error("Chart generation error:", error);
+        
+        return {
+          success: false,
+          error: "Failed to generate chart",
+          details: error instanceof Error ? error.message : "Unknown error",
         };
       }
     }),

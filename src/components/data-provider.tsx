@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, type ReactNode } from "react";
 
-type DataSchema = {
+type maybDataSchema = {
   name: string;
   type: "string" | "number" | "date" | "boolean";
   sample: string;
@@ -55,6 +55,7 @@ type AnalysisResult = {
   sql: string;
   displayType: "number" | "chart" | "table";
   explanations?: string; // Add explanations field
+  originalQuery?: string; // Add original query for dynamic chart generation
   interpretation: {
     aggregation: string;
     groupBy: string[];
@@ -94,6 +95,7 @@ type DataContextType = {
     displayType?: "number" | "chart" | "table";
     sql?: string;
     explanations?: string;
+    originalQuery?: string;
   }>;
   addMessage: (message: {
     type: "user" | "assistant";
@@ -107,6 +109,7 @@ type DataContextType = {
     displayType?: "number" | "chart" | "table";
     sql?: string;
     explanations?: string;
+    originalQuery?: string;
   }) => void;
   clearHistory: () => void;
 };
@@ -137,6 +140,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         sql: message.sql || "",
         displayType: message.displayType,
         explanations: message.explanations,
+        originalQuery: message.originalQuery,
         interpretation: {
           aggregation: "count",
           groupBy: [],

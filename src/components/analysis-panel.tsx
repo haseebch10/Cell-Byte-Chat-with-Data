@@ -1,17 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Database, Table, BarChart3, Download, ArrowLeft, BarChart, LineChart, PieChart, TableProperties } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
 import { DataVisualization } from "@/components/data-visualization";
+import { DynamicChart } from "@/components/dynamic-chart";
 import { FilterControls } from "@/components/filter-controls";
 import { downloadAsCSV, downloadAsPNG, generateExportFilename } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { tRPCClient } from "@/lib/trpc-client";
 import { 
   TableSkeleton,
-  EmptyState
+  EmptyState,
+  LoadingSpinner
 } from "@/components/ui/loading-states";
 
 export function AnalysisPanel() {
@@ -25,6 +28,70 @@ export function AnalysisPanel() {
   const [selectedChartType, setSelectedChartType] = useState<"bar" | "line" | "pie">("bar");
   const [selectedViewType, setSelectedViewType] = useState<"chart" | "table">("chart");
   const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [dynamicChartHtml, setDynamicChartHtml] = useState<string>("");
+  const [isGeneratingChart, setIsGeneratingChart] = useState(false);
+  const [chartGenerationError, setChartGenerationError] = useState<string>("");
+
+  // Check if we should use dynamic chart generation
+  // Now we use dynamic generation for ALL chart types, not just advanced ones
+  const shouldUseDynamicChart = (query: string): boolean => {
+    // Always use dynamic generation for chart display types
+    return true;
+  };
+
+  // Generate custom chart using LLM
+  const generateCustomChart = useCallback(async (originalQuery: string, data: any[], schema: any[]) => {
+    if (!currentDataset || !data || data.length === 0) return;
+
+    setIsGeneratingChart(true);
+    setChartGenerationError("");
+    setDynamicChartHtml("");
+
+    try {
+      // Determine chart type from the analysis or query
+      let chartType: string = currentAnalysis?.interpretation?.chartType || "bar";
+      
+      // Override with more specific chart type if mentioned in query
+      const lowerQuery = originalQuery.toLowerCase();
+      if (lowerQuery.includes("line") || lowerQuery.includes("trend")) {
+        chartType = "line";
+      } else if (lowerQuery.includes("pie") || lowerQuery.includes("distribution") || lowerQuery.includes("percentage")) {
+        chartType = "pie";
+      } else if (lowerQuery.includes("heatmap")) {
+        chartType = "heatmap";
+      } else if (lowerQuery.includes("scatter")) {
+        chartType = "scatter";
+      } else if (lowerQuery.includes("area")) {
+        chartType = "area";
+      }
+
+      const result = await tRPCClient.generateChart(
+        originalQuery,
+        data,
+        schema,
+        chartType
+      );
+
+      console.log("Chart generation result:", result);
+      console.log("Result success:", result.success);
+      console.log("Result code exists:", !!result.code);
+      console.log("Result code length:", result.code?.length);
+
+      if (result.success && result.code) {
+        setDynamicChartHtml(result.code);
+        console.log("Chart code set successfully, length:", result.code.length);
+      } else {
+        console.error("Chart generation failed:", result.error);
+        console.error("Result object:", JSON.stringify(result, null, 2));
+        setChartGenerationError(result.error || "Failed to generate custom chart");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      setChartGenerationError(`Chart generation failed: ${errorMessage}`);
+    } finally {
+      setIsGeneratingChart(false);
+    }
+  }, [currentDataset, currentAnalysis]);
 
   // Initialize filtered data when analysis changes
   useEffect(() => {
@@ -32,6 +99,23 @@ export function AnalysisPanel() {
       setFilteredData(currentAnalysis.data);
     }
   }, [currentAnalysis]);
+
+  // Generate dynamic chart when needed
+  useEffect(() => {
+    if (!currentAnalysis?.data || !currentAnalysis?.originalQuery) return;
+    
+    const dataToUse = filteredData.length > 0 ? filteredData : currentAnalysis.data;
+    const useDynamicChart = shouldUseDynamicChart(currentAnalysis.originalQuery);
+    
+    // Only generate for chart display types, and only if not already generated
+    if (useDynamicChart && 
+        currentAnalysis.displayType === "chart" && 
+        !dynamicChartHtml && 
+        !isGeneratingChart && 
+        !chartGenerationError) {
+      generateCustomChart(currentAnalysis.originalQuery, dataToUse, currentDataset?.schema || []);
+    }
+  }, [currentAnalysis, filteredData, dynamicChartHtml, isGeneratingChart, chartGenerationError, currentDataset?.schema, generateCustomChart]);
 
   const handleFiltersChange = (newFilteredData: any[]) => {
     setFilteredData(newFilteredData);
@@ -124,6 +208,10 @@ export function AnalysisPanel() {
     
     const dataToUse = filteredData.length > 0 ? filteredData : data;
     
+    // Check if we should use dynamic chart generation
+    const originalQuery = currentAnalysis?.originalQuery || "";
+    const useDynamicChart = shouldUseDynamicChart(originalQuery);
+
     const chartConfig = {
       type: selectedChartType,
       xField: Object.keys(dataToUse[0] || {})[0] || "x",
@@ -155,42 +243,128 @@ export function AnalysisPanel() {
 
         {selectedViewType === "chart" ? (
           <div>
-            <div className="flex gap-2 mb-4">
-              <Button
-                variant={selectedChartType === "bar" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedChartType("bar")}
-                className="flex items-center gap-2"
-              >
-                <BarChart className="w-4 h-4" />
-                Bar
-              </Button>
-              <Button
-                variant={selectedChartType === "line" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedChartType("line")}
-                className="flex items-center gap-2"
-              >
-                <LineChart className="w-4 h-4" />
-                Line
-              </Button>
-              <Button
-                variant={selectedChartType === "pie" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedChartType("pie")}
-                className="flex items-center gap-2"
-              >
-                <PieChart className="w-4 h-4" />
-                Pie
-              </Button>
-            </div>
+            {useDynamicChart ? (
+              <div>
+                {isGeneratingChart ? (
+                  <div className="h-64 flex items-center justify-center">
+                    <div className="text-center">
+                      <LoadingSpinner size="lg" />
+                      <p className="mt-2 text-sm text-slate-600">Generating dynamic chart...</p>
+                    </div>
+                  </div>
+                ) : chartGenerationError ? (
+                  <div className="h-64 flex items-center justify-center">
+                    <div className="text-center text-red-600">
+                      <p className="text-sm mb-2">{chartGenerationError}</p>
+                      <div className="space-y-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generateCustomChart(originalQuery, dataToUse, currentDataset?.schema || [])}
+                          className="mr-2"
+                        >
+                          Retry Dynamic Generation
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setChartGenerationError("");
+                            setDynamicChartHtml("");
+                          }}
+                        >
+                          Use Standard Charts
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : dynamicChartHtml ? (
+                  <div data-chart-container="true">
+                    <DynamicChart chartCode={dynamicChartHtml} data={dataToUse} />
+                  </div>
+                ) : (
+                  // Fallback to standard charts while dynamic generation is loading
+                  <div>
+                    <div className="flex gap-2 mb-4">
+                      <Button
+                        variant={selectedChartType === "bar" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedChartType("bar")}
+                        className="flex items-center gap-2"
+                      >
+                        <BarChart className="w-4 h-4" />
+                        Bar
+                      </Button>
+                      <Button
+                        variant={selectedChartType === "line" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedChartType("line")}
+                        className="flex items-center gap-2"
+                      >
+                        <LineChart className="w-4 h-4" />
+                        Line
+                      </Button>
+                      <Button
+                        variant={selectedChartType === "pie" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedChartType("pie")}
+                        className="flex items-center gap-2"
+                      >
+                        <PieChart className="w-4 h-4" />
+                        Pie
+                      </Button>
+                    </div>
 
-            <div data-chart-container="true">
-              <DataVisualization
-                data={dataToUse}
-                chartConfig={chartConfig}
-              />
-            </div>
+                    <div data-chart-container="true">
+                      <DataVisualization
+                        data={dataToUse}
+                        chartConfig={chartConfig}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Fallback to standard charts (should not happen with current logic, but kept for safety)
+              <div>
+                <div className="flex gap-2 mb-4">
+                  <Button
+                    variant={selectedChartType === "bar" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedChartType("bar")}
+                    className="flex items-center gap-2"
+                  >
+                    <BarChart className="w-4 h-4" />
+                    Bar
+                  </Button>
+                  <Button
+                    variant={selectedChartType === "line" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedChartType("line")}
+                    className="flex items-center gap-2"
+                  >
+                    <LineChart className="w-4 h-4" />
+                    Line
+                  </Button>
+                  <Button
+                    variant={selectedChartType === "pie" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedChartType("pie")}
+                    className="flex items-center gap-2"
+                  >
+                    <PieChart className="w-4 h-4" />
+                    Pie
+                  </Button>
+                </div>
+
+                <div data-chart-container="true">
+                  <DataVisualization
+                    data={dataToUse}
+                    chartConfig={chartConfig}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           renderTableDisplay(dataToUse)

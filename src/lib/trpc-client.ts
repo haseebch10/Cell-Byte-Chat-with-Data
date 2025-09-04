@@ -78,5 +78,46 @@ export const tRPCClient = {
     } else {
       throw new Error("Unexpected response format from server");
     }
+  },
+
+  async generateChart(originalQuery: string, data: any[], schema: any[], chartType?: string) {
+    console.log("tRPCClient: Generating chart with data length:", data.length, "schema:", schema.length);
+    
+    const response = await fetch("/api/trpc/data.generateChart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        "json": { 
+          originalQuery, 
+          data, 
+          schema, 
+          chartType 
+        } 
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("tRPCClient: HTTP error:", response.status, errorText);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    console.log("tRPCClient: Raw response:", result);
+    
+    // Handle response format
+    if (result?.result?.data?.json) {
+      console.log("tRPCClient: Returning result.data.json:", result.result.data.json);
+      return result.result.data.json;
+    } else if (result?.result?.data) {
+      console.log("tRPCClient: Returning result.data:", result.result.data);
+      return result.result.data;
+    } else if (result?.success !== undefined) {
+      console.log("tRPCClient: Returning direct result:", result);
+      return result;
+    } else {
+      console.error("tRPCClient: Unexpected response format:", result);
+      throw new Error("Unexpected response format from server");
+    }
   }
 };

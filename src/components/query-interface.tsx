@@ -92,6 +92,7 @@ export function QueryInterface() {
             displayType: data.displayType || "chart",
             sql: data.sql,
             explanations: data.explanations,
+            originalQuery: userMessage,
           });
         } else {
           // No results but query was successful
@@ -123,10 +124,11 @@ export function QueryInterface() {
         
         // Also add to chat for context
         const sqlInfo = data.sql ? `\n\n**Generated SQL:** \`${data.sql}\`` : "";
-        addMessage({ 
-          type: "assistant", 
-          content: `❌ Query failed: ${errorMsg}${sqlInfo}` 
-        });
+                  addMessage({ 
+            type: "assistant", 
+            content: `❌ Query failed: ${errorMsg}${sqlInfo}`,
+            originalQuery: userMessage,
+          });
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -138,7 +140,7 @@ export function QueryInterface() {
         retryAction: retryQuery
       });
       
-      addMessage({ type: "assistant", content: `Error: ${errorMessage}` });
+      addMessage({ type: "assistant", content: `Error: ${errorMessage}`, originalQuery: userMessage });
     } finally {
       setIsLoading(false);
       setLoadingType(null);
